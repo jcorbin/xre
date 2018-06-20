@@ -3,8 +3,10 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"syscall"
@@ -27,7 +29,8 @@ func run() error {
 	}
 	defer fin()
 
-	w := os.Stdout // TODO support redirection
+	var w io.Writer = os.Stdout // TODO support redirection
+	w = bufio.NewWriter(w)      // TODO buffering control
 
 	cmd, err := compileCommands(flag.Args(), w)
 	if err != nil {
