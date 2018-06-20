@@ -44,7 +44,7 @@ func compileCommands(args []string, w io.Writer) (cmd command, err error) {
 	return cmd, nil
 }
 
-func xcommandLinker(pat *regexp.Regexp) (linker, error) {
+func xcommandReLinker(pat *regexp.Regexp) (linker, error) {
 	return func(next command) (command, error) {
 		switch n := pat.NumSubexp(); n {
 		case 0:
@@ -56,6 +56,15 @@ func xcommandLinker(pat *regexp.Regexp) (linker, error) {
 		default:
 			return nil, fmt.Errorf("extraction with %v sub-patterns not supported", n)
 		}
+	}, nil
+}
+
+func xcommandBalLinker(start, end byte, inc bool) (linker, error) {
+	return func(next command) (command, error) {
+		if inc {
+			return extractBalancedInc{start, end, next}, nil
+		}
+		return extractBalanced{start, end, next}, nil
 	}, nil
 }
 

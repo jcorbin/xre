@@ -27,6 +27,16 @@ type extractSub struct {
 	next command
 }
 
+type extractBalanced struct {
+	open, close byte
+	next        command
+}
+
+type extractBalancedInc struct {
+	open, close byte
+	next        command
+}
+
 func (ex extract) Process(buf []byte) error {
 	for b := buf; len(b) > 0; {
 		loc := ex.pat.FindIndex(b)
@@ -60,6 +70,62 @@ func (ex extractSub) Process(buf []byte) error {
 		}
 		if err := ex.next.Process(m); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func (eb extractBalanced) Process(buf []byte) error {
+	// TODO escaping? quoting?
+	level := 0
+	start, end := 0, 0
+	for i := 0; i < len(buf); i++ {
+		switch buf[i] {
+		case eb.open:
+			if level == 0 {
+				start = i + 1
+			}
+			level++
+		case eb.close:
+			level--
+			if level < 0 {
+				level = 0
+			} else if level == 0 {
+				end = i
+				m := buf[start:end] // extracted match
+				if err := eb.next.Process(m); err != nil {
+					return err
+				}
+				start, end = 0, 0
+			}
+		}
+	}
+	return nil
+}
+
+func (eb extractBalancedInc) Process(buf []byte) error {
+	// TODO escaping? quoting?
+	level := 0
+	start, end := 0, 0
+	for i := 0; i < len(buf); i++ {
+		switch buf[i] {
+		case eb.open:
+			if level == 0 {
+				start = i
+			}
+			level++
+		case eb.close:
+			level--
+			if level < 0 {
+				level = 0
+			} else if level == 0 {
+				end = i + 1
+				m := buf[start:end] // extracted match
+				if err := eb.next.Process(m); err != nil {
+					return err
+				}
+				start, end = 0, 0
+			}
 		}
 	}
 	return nil

@@ -42,10 +42,31 @@ func scanCommand(s string) ([]linker, error) {
 //// command scanners
 
 func scanX(s string) (lnk linker, _ string, _ error) {
-	re, s, err := scanPat(s[0], s[1:])
-	if err == nil {
-		lnk, err = xcommandLinker(re)
+	switch s[0] {
+	case '[':
+		return scanXBal('[', ']', s[1:])
+	case '{':
+		return scanXBal('{', '}', s[1:])
+	case '(':
+		return scanXBal('(', ')', s[1:])
+	case '<':
+		return scanXBal('<', '>', s[1:])
+	default:
+		re, s, err := scanPat(s[0], s[1:])
+		if err == nil {
+			lnk, err = xcommandReLinker(re)
+		}
+		return lnk, s, err
 	}
+}
+
+func scanXBal(start, end byte, s string) (lnk linker, _ string, _ error) {
+	inc := false
+	if len(s) > 0 && s[0] == end {
+		inc = true // TODO consider the usability of this
+		s = s[1:]
+	}
+	lnk, err := xcommandBalLinker(start, end, inc)
 	return lnk, s, err
 }
 
