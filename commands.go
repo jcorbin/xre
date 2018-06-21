@@ -193,6 +193,28 @@ func (bd betweenDelim) Process(buf []byte) error {
 	return bd.next.Process(b)
 }
 
+func (bd betweenDelim) ProcessIn(buf []byte, last bool) (n int, err error) {
+	// TODO inclusive / exclusive control
+	locs := bd.pat.FindAllIndex(buf, -1)
+	var loc []int
+	for i := 0; i < len(locs); i++ {
+		loc = locs[i]
+		i := loc[1]
+		if i < len(buf) {
+			i++
+		}
+		m := buf[n:i] // extracted match
+		n = i
+		if err = bd.next.Process(m); err != nil {
+			break
+		}
+	}
+	if last && err == nil {
+		n, err = len(buf), bd.next.Process(buf[n:])
+	}
+	return n, err
+}
+
 //// filtering
 
 type filter struct {
