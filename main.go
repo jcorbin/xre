@@ -36,7 +36,9 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	return cmd.Process(buf)
+	return withProf(func() error {
+		return cmd.Process(buf)
+	})
 }
 
 func mmap(f *os.File) ([]byte, func() error, error) {
