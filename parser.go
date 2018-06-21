@@ -70,19 +70,29 @@ func scanXBal(start, end byte, s string) (lnk linker, _ string, _ error) {
 }
 
 func scanY(s string) (lnk linker, _ string, err error) {
-	sep := s[0]
-	s = s[1:]
-	var pats [2]*regexp.Regexp
-	for i := 0; len(s) > 0 && i < 2; i++ {
-		pats[i], s, err = scanPat(sep, s)
-		if err != nil {
-			break
+	var c byte
+	if len(s) > 0 {
+		c = s[0]
+	}
+	switch c {
+
+	case '/':
+		s = s[1:]
+		var pats [2]*regexp.Regexp
+		for i := 0; len(s) > 0 && i < 2; i++ {
+			pats[i], s, err = scanPat(c, s)
+			if err != nil {
+				break
+			}
 		}
+		if err == nil {
+			lnk, err = yLinker(pats[0], pats[1])
+		}
+		return lnk, s, err
+
+	default:
+		return nil, s, fmt.Errorf("unrecognized y command, expecting y/delimPattern/ or y/startPattern/endPattern/")
 	}
-	if err == nil {
-		lnk, err = yLinker(pats[0], pats[1])
-	}
-	return lnk, s, err
 }
 
 func scanG(s string) (lnk linker, _ string, _ error) {
