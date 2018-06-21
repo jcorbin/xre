@@ -146,14 +146,14 @@ type betweenDelim struct {
 }
 
 func (by between) Process(buf []byte) error {
-	// TODO inclusive / exclusive control
+	// TODO inclusive variant?
 	for b := buf; len(b) > 0; {
 		// find start pattern
 		loc := by.start.FindIndex(b)
 		if loc == nil {
 			break
 		}
-		m := b[loc[0]:] // extracted match (start)
+		m := b[loc[1]+1:] // start extracted match after match of start pattern
 		b = b[loc[1]+1:]
 
 		// find end pattern
@@ -162,7 +162,7 @@ func (by between) Process(buf []byte) error {
 		if loc == nil {
 			break
 		}
-		m = m[:off+loc[1]+1] // extracted match (end)
+		m = m[:off+loc[0]] // end extracted match before match of end pattern
 		b = b[loc[1]+1:]
 
 		if err := by.next.Process(m); err != nil {
@@ -173,18 +173,19 @@ func (by between) Process(buf []byte) error {
 }
 
 func (bd betweenDelim) Process(buf []byte) error {
-	// TODO inclusive / exclusive control
+	// TODO inclusive variant?
 	b := buf
 	for len(b) > 0 {
 		loc := bd.pat.FindIndex(b)
 		if loc == nil {
 			break
 		}
-		i := loc[1]
+		i := loc[0]
+		m := b[:i] // extracted match
+		i = loc[1]
 		if i < len(b) {
 			i++
 		}
-		m := b[:i] // extracted match
 		b = b[i:]
 		if err := bd.next.Process(m); err != nil {
 			return err
@@ -194,17 +195,17 @@ func (bd betweenDelim) Process(buf []byte) error {
 }
 
 func (bd betweenDelim) ProcessIn(buf []byte, last bool) (n int, err error) {
-	// TODO inclusive / exclusive control
+	// TODO inclusive variant?
 	locs := bd.pat.FindAllIndex(buf, -1)
 	var loc []int
 	for i := 0; i < len(locs); i++ {
 		loc = locs[i]
-		i := loc[1]
-		if i < len(buf) {
-			i++
-		}
+		i := loc[0]
 		m := buf[n:i] // extracted match
-		n = i
+		n = loc[1]
+		if n < len(buf) {
+			n++
+		}
 		if err = bd.next.Process(m); err != nil {
 			break
 		}
