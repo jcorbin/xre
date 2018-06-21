@@ -53,7 +53,7 @@ func scanX(s string) (lnk linker, _ string, _ error) {
 	default:
 		re, s, err := scanPat(s[0], s[1:])
 		if err == nil {
-			lnk, err = xcommandReLinker(re)
+			lnk, err = xReLinker(re)
 		}
 		return lnk, s, err
 	}
@@ -65,7 +65,7 @@ func scanXBal(start, end byte, s string) (lnk linker, _ string, _ error) {
 		inc = true // TODO consider the usability of this
 		s = s[1:]
 	}
-	lnk, err := xcommandBalLinker(start, end, inc)
+	lnk, err := xBalLinker(start, end, inc)
 	return lnk, s, err
 }
 
@@ -80,7 +80,7 @@ func scanY(s string) (lnk linker, _ string, err error) {
 		}
 	}
 	if err == nil {
-		lnk, err = ycommandLinker(pats[0], pats[1])
+		lnk, err = yLinker(pats[0], pats[1])
 	}
 	return lnk, s, err
 }
@@ -88,7 +88,7 @@ func scanY(s string) (lnk linker, _ string, err error) {
 func scanG(s string) (lnk linker, _ string, _ error) {
 	re, s, err := scanPat(s[0], s[1:])
 	if err == nil {
-		lnk, err = gcommandLinker(re, false)
+		lnk, err = gLinker(re, false)
 	}
 	return lnk, s, err
 }
@@ -96,7 +96,7 @@ func scanG(s string) (lnk linker, _ string, _ error) {
 func scanV(s string) (lnk linker, _ string, _ error) {
 	re, s, err := scanPat(s[0], s[1:])
 	if err == nil {
-		lnk, err = gcommandLinker(re, true)
+		lnk, err = gLinker(re, true)
 	}
 	return lnk, s, err
 }
@@ -116,18 +116,18 @@ func scanP(s string) (lnk linker, _ string, err error) {
 		var format string
 		format, s, err = scanString(s[0], s[1:])
 		if err == nil {
-			lnk, err = pcommandLinker(format, nil)
+			lnk, err = pLinker(format, nil)
 		}
 
 	case '"':
 		var tmp string
 		tmp, s, err = scanString(s[0], s[1:])
 		if err == nil {
-			lnk, err = pcommandLinker("", []byte(tmp))
+			lnk, err = pLinker("", []byte(tmp))
 		}
 
 	default:
-		lnk, err = pcommandLinker("", nil)
+		lnk, err = pLinker("", nil)
 	}
 	return lnk, s, err
 }

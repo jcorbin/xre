@@ -44,7 +44,7 @@ func compileCommands(args []string, w io.Writer) (cmd command, err error) {
 	return cmd, nil
 }
 
-func xcommandReLinker(pat *regexp.Regexp) (linker, error) {
+func xReLinker(pat *regexp.Regexp) (linker, error) {
 	return func(next command) (command, error) {
 		switch n := pat.NumSubexp(); n {
 		case 0:
@@ -59,7 +59,7 @@ func xcommandReLinker(pat *regexp.Regexp) (linker, error) {
 	}, nil
 }
 
-func xcommandBalLinker(start, end byte, inc bool) (linker, error) {
+func xBalLinker(start, end byte, inc bool) (linker, error) {
 	return func(next command) (command, error) {
 		if inc {
 			return extractBalancedInc{start, end, next}, nil
@@ -68,7 +68,7 @@ func xcommandBalLinker(start, end byte, inc bool) (linker, error) {
 	}, nil
 }
 
-func ycommandLinker(start, end *regexp.Regexp) (linker, error) {
+func yLinker(start, end *regexp.Regexp) (linker, error) {
 	return func(next command) (command, error) {
 		if end != nil {
 			return between{start, end, next}, nil
@@ -77,7 +77,7 @@ func ycommandLinker(start, end *regexp.Regexp) (linker, error) {
 	}, nil
 }
 
-func gcommandLinker(pat *regexp.Regexp, negate bool) (linker, error) {
+func gLinker(pat *regexp.Regexp, negate bool) (linker, error) {
 	return func(next command) (command, error) {
 		if negate {
 			return filterNeg{pat, next}, nil
@@ -86,7 +86,7 @@ func gcommandLinker(pat *regexp.Regexp, negate bool) (linker, error) {
 	}, nil
 }
 
-func pcommandLinker(format string, delim []byte) (linker, error) {
+func pLinker(format string, delim []byte) (linker, error) {
 	return func(next command) (command, error) {
 		if format != "" && delim != nil {
 			format, delim = fmt.Sprintf("%s%s", format, delim), nil
