@@ -19,6 +19,9 @@ func main() {
 }
 
 func run() error {
+	useMmap := false
+	flag.BoolVar(&useMmap, "mmap", false, "force using mmap mode rather than streaming")
+
 	flag.Parse()
 
 	// TODO SIGPIPE handler
@@ -38,17 +41,18 @@ func run() error {
 			return err
 
 		case streamingCommand:
-			rb := readBuf{buf: make([]byte, 0, minRead)} // TODO configurable buffer size
-			return rb.Process(impl, os.Stdin)
-
-		default:
-			buf, fin, err := mmap(os.Stdin)
-			if err != nil {
-				return err
+			if !useMmap {
+				rb := readBuf{buf: make([]byte, 0, minRead)} // TODO configurable buffer size
+				return rb.Process(impl, os.Stdin)
 			}
-			defer fin()
-			return cmd.Process(buf)
 		}
+
+		buf, fin, err := mmap(os.Stdin)
+		if err != nil {
+			return err
+		}
+		defer fin()
+		return cmd.Process(buf)
 	})
 }
 
