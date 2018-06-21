@@ -17,7 +17,6 @@ var commands = map[byte]scanner{
 	'y': scanY,
 	'g': scanG,
 	'v': scanV,
-	'q': scanQ,
 	'p': scanP,
 }
 
@@ -102,23 +101,33 @@ func scanV(s string) (lnk linker, _ string, _ error) {
 	return lnk, s, err
 }
 
-// TODO reconsider making quoting not so first-class
-func scanQ(s string) (linker, string, error) {
-	lnk, err := pcommandLinker("%q\n", nil)
-	return lnk, s, err
-}
-
 func scanP(s string) (lnk linker, _ string, err error) {
-	var delim []byte
-	if s[0] == '"' {
+	var c byte
+	if len(s) > 0 {
+		c = s[0]
+	}
+	switch c {
+
+	case '%':
+		if len(s) < 3 || s[1] != '"' {
+			return nil, s, errors.New("missing format scring to p%")
+		}
+		s = s[1:]
+		var format string
+		format, s, err = scanString(s[0], s[1:])
+		if err == nil {
+			lnk, err = pcommandLinker(format, nil)
+		}
+
+	case '"':
 		var tmp string
 		tmp, s, err = scanString(s[0], s[1:])
 		if err == nil {
-			delim = []byte(tmp)
+			lnk, err = pcommandLinker("", []byte(tmp))
 		}
-	}
-	if err == nil {
-		lnk, err = pcommandLinker("", delim)
+
+	default:
+		lnk, err = pcommandLinker("", nil)
 	}
 	return lnk, s, err
 }
