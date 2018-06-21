@@ -9,10 +9,12 @@ import (
 
 type command interface {
 	// Batch mode
-	Process([]byte) error
+	Process(buf []byte) error
+}
 
-	// Stream mode TODO
-	// io.ReaderFrom
+type streamingCommand interface {
+	command
+	ProcessIn(buf []byte, last bool) (int, error)
 }
 
 //// extraction by pattern

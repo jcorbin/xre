@@ -23,12 +23,6 @@ func run() error {
 
 	// TODO SIGPIPE handler
 
-	buf, fin, err := mmap(os.Stdin)
-	if err != nil {
-		return err
-	}
-	defer fin()
-
 	var w io.Writer = os.Stdout // TODO support redirection
 	w = bufio.NewWriter(w)      // TODO buffering control
 
@@ -36,8 +30,25 @@ func run() error {
 	if err != nil {
 		return err
 	}
+
 	return withProf(func() error {
-		return cmd.Process(buf)
+		switch impl := cmd.(type) {
+		case io.ReaderFrom:
+			_, err := impl.ReadFrom(os.Stdin)
+			return err
+
+		case streamingCommand:
+			rb := readBuf{buf: make([]byte, 0, minRead)} // TODO configurable buffer size
+			return rb.Process(impl, os.Stdin)
+
+		default:
+			buf, fin, err := mmap(os.Stdin)
+			if err != nil {
+				return err
+			}
+			defer fin()
+			return cmd.Process(buf)
+		}
 	})
 }
 
