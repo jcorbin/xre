@@ -5,6 +5,14 @@ import "bytes"
 type lineSplitter int
 type byteSplitter byte
 type bytesSplitter []byte
+type byteSplitTrimmer struct {
+	delim  byte
+	cutset string
+}
+type bytesSplitTrimmer struct {
+	delim  []byte
+	cutset string
+}
 
 func (ls lineSplitter) Split(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	if atEOF && len(data) == 0 {
@@ -56,6 +64,32 @@ func (bss bytesSplitter) Split(data []byte, atEOF bool) (advance int, token []by
 	}
 	if atEOF {
 		return len(data), data, nil
+	}
+	return 0, nil, nil
+}
+
+func (bst byteSplitTrimmer) Split(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	if atEOF && len(data) == 0 {
+		return 0, nil, nil
+	}
+	if i := bytes.IndexByte(data, bst.delim); i >= 0 {
+		return i + 1, bytes.TrimRight(data[0:i], bst.cutset), nil
+	}
+	if atEOF {
+		return len(data), bytes.TrimRight(data, bst.cutset), nil
+	}
+	return 0, nil, nil
+}
+
+func (bsst bytesSplitTrimmer) Split(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	if atEOF && len(data) == 0 {
+		return 0, nil, nil
+	}
+	if i := bytes.Index(data, bsst.delim); i >= 0 {
+		return i + 1, bytes.TrimRight(data[0:i], bsst.cutset), nil
+	}
+	if atEOF {
+		return len(data), bytes.TrimRight(data, bsst.cutset), nil
 	}
 	return 0, nil, nil
 }

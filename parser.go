@@ -91,10 +91,15 @@ func scanY(s string) (lnk linker, _ string, err error) {
 		return lnk, s, err
 
 	case '"':
-		var delim string
+		var delim, cutset string
 		delim, s, err = scanString(c, s[1:])
 		if err == nil {
-			lnk, err = yDelimLinker(delim)
+			if len(s) > 3 && s[0] == '~' && s[1] == '"' {
+				cutset, s, err = scanString(c, s[1:])
+			}
+		}
+		if err == nil {
+			lnk, err = yDelimLinker(delim, cutset)
 		}
 		return lnk, s, err
 

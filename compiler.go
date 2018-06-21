@@ -77,13 +77,19 @@ func yReLinker(start, end *regexp.Regexp) (linker, error) {
 	}, nil
 }
 
-func yDelimLinker(delim string) (linker, error) {
+func yDelimLinker(delim, cutset string) (linker, error) {
 	return func(next command) (command, error) {
 		if len(delim) == 0 {
 			return nil, errors.New("empty y\"delimiter\"")
 		}
 		if allNewlines(delim) {
 			return betweenDelimSplit{lineSplitter(len(delim)), next}, nil
+		}
+		if cutset != "" {
+			if len(delim) == 1 {
+				return betweenDelimSplit{byteSplitTrimmer{delim[0], cutset}, next}, nil
+			}
+			return betweenDelimSplit{bytesSplitTrimmer{[]byte(delim), cutset}, next}, nil
 		}
 		if len(delim) == 1 {
 			return betweenDelimSplit{byteSplitter(delim[0]), next}, nil

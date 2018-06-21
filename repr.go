@@ -28,6 +28,8 @@ func (bd betweenDelimSplit) String() string {
 func (ls lineSplitter) String() string        { return fmt.Sprintf("%q", strings.Repeat(`\n`, int(ls))) }
 func (bs byteSplitter) String() string        { return fmt.Sprintf("%q", string(bs)) }
 func (bss bytesSplitter) String() string      { return fmt.Sprintf("%q", []byte(bss)) }
+func (bst byteSplitTrimmer) String() string   { return fmt.Sprintf("%q~%q", bst.delim, bst.cutset) }
+func (bsst bytesSplitTrimmer) String() string { return fmt.Sprintf("%q~%q", bsst.delim, bsst.cutset) }
 
 func (fl filter) String() string    { return fmt.Sprintf("g/%v/%v", regexpString(fl.pat), fl.next) }
 func (fn filterNeg) String() string { return fmt.Sprintf("v/%v/%v", regexpString(fn.pat), fn.next) }
