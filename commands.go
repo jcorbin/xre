@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -140,9 +141,18 @@ type between struct {
 	next       command
 }
 
-type betweenDelim struct {
+type betweenDelimRe struct {
 	pat  *regexp.Regexp
 	next command
+}
+
+type betweenDelimSplit struct {
+	split splitter
+	next  command
+}
+
+type splitter interface {
+	Split(data []byte, atEOF bool) (advance int, token []byte, err error)
 }
 
 func (by between) Process(buf []byte) error {
@@ -172,7 +182,7 @@ func (by between) Process(buf []byte) error {
 	return nil
 }
 
-func (bd betweenDelim) Process(buf []byte) error {
+func (bd betweenDelimRe) Process(buf []byte) error {
 	// TODO inclusive variant?
 	b := buf
 	for len(b) > 0 {
@@ -194,7 +204,7 @@ func (bd betweenDelim) Process(buf []byte) error {
 	return bd.next.Process(b)
 }
 
-func (bd betweenDelim) ProcessIn(buf []byte, last bool) (n int, err error) {
+func (bd betweenDelimRe) ProcessIn(buf []byte, last bool) (n int, err error) {
 	// TODO inclusive variant?
 	locs := bd.pat.FindAllIndex(buf, -1)
 	var loc []int
@@ -212,6 +222,27 @@ func (bd betweenDelim) ProcessIn(buf []byte, last bool) (n int, err error) {
 	}
 	if last && err == nil {
 		n, err = len(buf), bd.next.Process(buf[n:])
+	}
+	return n, err
+}
+
+func (bd betweenDelimSplit) Process(buf []byte) error {
+	_, err := bd.ReadFrom(bytes.NewReader(buf))
+	return err
+}
+
+func (bd betweenDelimSplit) ReadFrom(r io.Reader) (n int64, err error) {
+	// TODO inclusive variant?
+	sc := bufio.NewScanner(r)
+	// sc.Buffer() // TODO raise the roof
+	sc.Split(bd.split.Split)
+	for sc.Scan() {
+		if err = bd.next.Process(sc.Bytes()); err != nil {
+			break
+		}
+	}
+	if scerr := sc.Err(); err == nil {
+		err = scerr
 	}
 	return n, err
 }

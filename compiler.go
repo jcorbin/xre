@@ -68,13 +68,37 @@ func xBalLinker(start, end byte, inc bool) (linker, error) {
 	}, nil
 }
 
-func yLinker(start, end *regexp.Regexp) (linker, error) {
+func yReLinker(start, end *regexp.Regexp) (linker, error) {
 	return func(next command) (command, error) {
 		if end != nil {
 			return between{start, end, next}, nil
 		}
-		return betweenDelim{start, next}, nil
+		return betweenDelimRe{start, next}, nil
 	}, nil
+}
+
+func yDelimLinker(delim string) (linker, error) {
+	return func(next command) (command, error) {
+		if len(delim) == 0 {
+			return nil, errors.New("empty y\"delimiter\"")
+		}
+		if allNewlines(delim) {
+			return betweenDelimSplit{lineSplitter(len(delim)), next}, nil
+		}
+		if len(delim) == 1 {
+			return betweenDelimSplit{byteSplitter(delim[0]), next}, nil
+		}
+		return betweenDelimSplit{bytesSplitter(delim), next}, nil
+	}, nil
+}
+
+func allNewlines(delim string) bool {
+	for i := 0; i < len(delim); i++ {
+		if delim[i] != '\n' {
+			return false
+		}
+	}
+	return true
 }
 
 func gLinker(pat *regexp.Regexp, negate bool) (linker, error) {

@@ -18,9 +18,16 @@ func (ex extractBalancedInc) String() string {
 func (by between) String() string {
 	return fmt.Sprintf("y/%v/%v/%v", regexpString(by.start), regexpString(by.end), by.next)
 }
-func (bd betweenDelim) String() string {
+func (bd betweenDelimRe) String() string {
 	return fmt.Sprintf("y/%v/%v", regexpString(bd.pat), bd.next)
 }
+func (bd betweenDelimSplit) String() string {
+	return fmt.Sprintf("y%v%v", bd.split, bd.next)
+}
+
+func (ls lineSplitter) String() string        { return fmt.Sprintf("%q", strings.Repeat(`\n`, int(ls))) }
+func (bs byteSplitter) String() string        { return fmt.Sprintf("%q", string(bs)) }
+func (bss bytesSplitter) String() string      { return fmt.Sprintf("%q", []byte(bss)) }
 
 func (fl filter) String() string    { return fmt.Sprintf("g/%v/%v", regexpString(fl.pat), fl.next) }
 func (fn filterNeg) String() string { return fmt.Sprintf("v/%v/%v", regexpString(fn.pat), fn.next) }

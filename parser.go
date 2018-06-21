@@ -86,12 +86,21 @@ func scanY(s string) (lnk linker, _ string, err error) {
 			}
 		}
 		if err == nil {
-			lnk, err = yLinker(pats[0], pats[1])
+			lnk, err = yReLinker(pats[0], pats[1])
+		}
+		return lnk, s, err
+
+	case '"':
+		var delim string
+		delim, s, err = scanString(c, s[1:])
+		if err == nil {
+			lnk, err = yDelimLinker(delim)
 		}
 		return lnk, s, err
 
 	default:
-		return nil, s, fmt.Errorf("unrecognized y command, expecting y/delimPattern/ or y/startPattern/endPattern/")
+		// TODO could default to line-delimiting (aka as if y"\n" was given)
+		return nil, s, fmt.Errorf("unrecognized y command, expecting y\"delim\", y/delimPattern/, or y/startPattern/endPattern/")
 	}
 }
 
