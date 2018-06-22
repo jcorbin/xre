@@ -33,7 +33,9 @@ attempt:
 		i += off
 		j := i + 1
 		for n := 1; n < int(ls) && j < len(data); n++ {
-			if data[j] != '\n' {
+			if data[j] == '\n' {
+				j++
+			} else {
 				off = j
 				continue attempt
 			}
