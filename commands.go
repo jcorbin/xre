@@ -287,7 +287,7 @@ type delimer struct {
 	next  command
 }
 
-func (fr fmter) Process(buf []byte) error {
+func (fr *fmter) Process(buf []byte) error {
 	fr.tmp.Reset()
 	_, err := fmt.Fprintf(&fr.tmp, fr.fmt, buf)
 	if err == nil {
@@ -296,7 +296,7 @@ func (fr fmter) Process(buf []byte) error {
 	return err
 }
 
-func (dr delimer) Process(buf []byte) error {
+func (dr *delimer) Process(buf []byte) error {
 	dr.tmp.Reset()
 	_, err := dr.tmp.Write(buf)
 	if err == nil {

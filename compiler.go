@@ -147,9 +147,9 @@ func pLinker(format string, delim []byte) (linker, error) {
 
 		default:
 			if format != "" {
-				return fmter{fmt: format, next: next}, nil
+				return &fmter{fmt: format, next: next}, nil
 			}
-			return delimer{delim: delim, next: next}, nil
+			return &delimer{delim: delim, next: next}, nil
 		}
 	}, nil
 }
