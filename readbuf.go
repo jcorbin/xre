@@ -91,12 +91,12 @@ func (rb *readBuf) tryGrowByReslice(n int) (int, bool) {
 	return 0, false
 }
 
-func (rb *readBuf) Process(cmd streamingCommand, r io.Reader) error {
+func (rb *readBuf) Process(cmd command, r io.Reader) error {
 	for {
 		m, err := rb.readMore(r)
 		last := err == io.EOF
 		buf := rb.Bytes()
-		m, procErr := cmd.ProcessIn(buf, last)
+		m, procErr := cmd.Process(buf, last)
 		if m > 0 {
 			rb.Advance(m)
 		}

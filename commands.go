@@ -9,13 +9,7 @@ import (
 )
 
 type command interface {
-	// Batch mode
-	Process(buf []byte) error
-}
-
-type streamingCommand interface {
-	command
-	ProcessIn(buf []byte, last bool) (int, error)
+	Process(buf []byte, ateof bool) (off int, err error)
 }
 
 //// extraction by pattern
@@ -40,53 +34,46 @@ type extractBalancedInc struct {
 	next        command
 }
 
-func (ex extract) Process(buf []byte) error {
-	for b := buf; len(b) > 0; {
-		loc := ex.pat.FindIndex(b)
+func (ex extract) Process(buf []byte, ateof bool) (off int, err error) {
+	for err == nil && off < len(buf) {
+		loc := ex.pat.FindIndex(buf[off:])
 		if loc == nil {
 			break
 		}
-		m := b[loc[0]:loc[1]] // extracted match
-		if i := loc[1] + 1; i < len(b) {
-			b = b[i:]
+		m := buf[off+loc[0] : off+loc[1]] // extracted match
+		if off += loc[1]; off < len(buf) {
+			_, err = ex.next.Process(m, false)
 		} else {
-			b = nil
-		}
-		if err := ex.next.Process(m); err != nil {
-			return err
+			_, err = ex.next.Process(m, ateof)
 		}
 	}
-	return nil
+	return off, err
 }
 
-func (ex extractSub) Process(buf []byte) error {
-	for b := buf; len(b) > 0; {
-		locs := ex.pat.FindSubmatchIndex(b)
+func (ex extractSub) Process(buf []byte, ateof bool) (off int, err error) {
+	for err == nil && off < len(buf) {
+		locs := ex.pat.FindSubmatchIndex(buf[off:])
 		if locs == nil {
 			break
 		}
-		m := b[locs[2]:locs[3]] // extracted match
-		if i := locs[1] + 1; i < len(b) {
-			b = b[i:]
+		m := buf[off+locs[2] : off+locs[3]] // extracted match
+		if off += locs[1]; off < len(buf) {
+			_, err = ex.next.Process(m, false)
 		} else {
-			b = nil
-		}
-		if err := ex.next.Process(m); err != nil {
-			return err
+			_, err = ex.next.Process(m, ateof)
 		}
 	}
-	return nil
+	return off, err
 }
 
-func (eb extractBalanced) Process(buf []byte) error {
+func (eb extractBalanced) Process(buf []byte, ateof bool) (off int, err error) {
 	// TODO escaping? quoting?
-	level := 0
-	start, end := 0, 0
-	for i := 0; i < len(buf); i++ {
-		switch buf[i] {
+	level, start := 0, 0
+	for ; err == nil && off < len(buf); off++ {
+		switch buf[off] {
 		case eb.open:
 			if level == 0 {
-				start = i + 1
+				start = off + 1
 			}
 			level++
 		case eb.close:
@@ -94,27 +81,22 @@ func (eb extractBalanced) Process(buf []byte) error {
 			if level < 0 {
 				level = 0
 			} else if level == 0 {
-				end = i
-				m := buf[start:end] // extracted match
-				if err := eb.next.Process(m); err != nil {
-					return err
-				}
-				start, end = 0, 0
+				m := buf[start:off] // extracted match
+				_, err = eb.next.Process(m, false)
 			}
 		}
 	}
-	return nil
+	return off, err
 }
 
-func (eb extractBalancedInc) Process(buf []byte) error {
+func (eb extractBalancedInc) Process(buf []byte, ateof bool) (off int, err error) {
 	// TODO escaping? quoting?
-	level := 0
-	start, end := 0, 0
-	for i := 0; i < len(buf); i++ {
-		switch buf[i] {
+	level, start := 0, 0
+	for ; err == nil && off < len(buf); off++ {
+		switch buf[off] {
 		case eb.open:
 			if level == 0 {
-				start = i
+				start = off
 			}
 			level++
 		case eb.close:
@@ -122,16 +104,12 @@ func (eb extractBalancedInc) Process(buf []byte) error {
 			if level < 0 {
 				level = 0
 			} else if level == 0 {
-				end = i + 1
-				m := buf[start:end] // extracted match
-				if err := eb.next.Process(m); err != nil {
-					return err
-				}
-				start, end = 0, 0
+				m := buf[start : off+1] // extracted match
+				_, err = eb.next.Process(m, false)
 			}
 		}
 	}
-	return nil
+	return off, err
 }
 
 //// extraction between patterns
@@ -155,80 +133,54 @@ type splitter interface {
 	Split(data []byte, atEOF bool) (advance int, token []byte, err error)
 }
 
-func (by between) Process(buf []byte) error {
+func (by between) Process(buf []byte, ateof bool) (off int, err error) {
 	// TODO inclusive variant?
-	for b := buf; len(b) > 0; {
+	for err == nil && off < len(buf) {
 		// find start pattern
-		loc := by.start.FindIndex(b)
+		loc := by.start.FindIndex(buf[off:])
 		if loc == nil {
 			break
 		}
-		m := b[loc[1]+1:] // start extracted match after match of start pattern
-		b = b[loc[1]+1:]
+		if off += loc[1]; off >= len(buf) {
+			break
+		}
+		m := buf[off:] // start extracted match after match of start pattern
 
 		// find end pattern
-		off := loc[1] - loc[0]
-		loc = by.end.FindIndex(b)
+		loc = by.end.FindIndex(m)
 		if loc == nil {
 			break
 		}
-		m = m[:off+loc[0]] // end extracted match before match of end pattern
-		b = b[loc[1]+1:]
+		off += loc[1]
+		m = m[:loc[0]] // end extracted match before match of end pattern
 
-		if err := by.next.Process(m); err != nil {
-			return err
-		}
+		_, err = by.next.Process(m, false)
 	}
-	return nil
+	return off, err
 }
 
-func (bd betweenDelimRe) Process(buf []byte) error {
+func (bd betweenDelimRe) Process(buf []byte, ateof bool) (off int, err error) {
 	// TODO inclusive variant?
-	b := buf
-	for len(b) > 0 {
-		loc := bd.pat.FindIndex(b)
+	for err == nil && off < len(buf) {
+		loc := bd.pat.FindIndex(buf[off:])
 		if loc == nil {
+			if ateof {
+				nextOff, err := bd.next.Process(buf[off:], true)
+				return off + nextOff, err
+			}
 			break
 		}
-		i := loc[0]
-		m := b[:i] // extracted match
-		i = loc[1]
-		if i < len(b) {
-			i++
-		}
-		b = b[i:]
-		if err := bd.next.Process(m); err != nil {
-			return err
-		}
+		m := buf[off : off+loc[0]] // extracted match
+		off += loc[1]
+		_, err = bd.next.Process(m, false)
 	}
-	return bd.next.Process(b)
+	return off, err
 }
 
-func (bd betweenDelimRe) ProcessIn(buf []byte, last bool) (n int, err error) {
-	// TODO inclusive variant?
-	locs := bd.pat.FindAllIndex(buf, -1)
-	var loc []int
-	for i := 0; i < len(locs); i++ {
-		loc = locs[i]
-		i := loc[0]
-		m := buf[n:i] // extracted match
-		n = loc[1]
-		if n < len(buf) {
-			n++
-		}
-		if err = bd.next.Process(m); err != nil {
-			break
-		}
-	}
-	if last && err == nil {
-		n, err = len(buf), bd.next.Process(buf[n:])
-	}
-	return n, err
-}
-
-func (bd betweenDelimSplit) Process(buf []byte) error {
-	_, err := bd.ReadFrom(bytes.NewReader(buf))
-	return err
+func (bd betweenDelimSplit) Process(buf []byte, ateof bool) (off int, err error) {
+	// TODO technically we should use a split func that doesn't consume the last partial if !ateof
+	_, err = bd.ReadFrom(bytes.NewReader(buf))
+	return len(buf), err // FIXME would be great to get the truth from ReadFrom below
 }
 
 func (bd betweenDelimSplit) ReadFrom(r io.Reader) (n int64, err error) {
@@ -236,14 +188,13 @@ func (bd betweenDelimSplit) ReadFrom(r io.Reader) (n int64, err error) {
 	sc := bufio.NewScanner(r)
 	// sc.Buffer() // TODO raise the roof
 	sc.Split(bd.split.Split)
-	for sc.Scan() {
-		if err = bd.next.Process(sc.Bytes()); err != nil {
-			break
-		}
+	for err == nil && sc.Scan() {
+		_, err = bd.next.Process(sc.Bytes(), false)
 	}
 	if scerr := sc.Err(); err == nil {
 		err = scerr
 	}
+	// FIXME n is always 0, since there's no telling how many bytes the scanner consumed
 	return n, err
 }
 
@@ -259,18 +210,18 @@ type filterNeg struct {
 	next command
 }
 
-func (fl filter) Process(buf []byte) error {
+func (fl filter) Process(buf []byte, ateof bool) (off int, err error) {
 	if fl.pat.Match(buf) {
-		return fl.next.Process(buf)
+		return fl.next.Process(buf, ateof)
 	}
-	return nil
+	return 0, nil
 }
 
-func (fn filterNeg) Process(buf []byte) error {
+func (fn filterNeg) Process(buf []byte, ateof bool) (off int, err error) {
 	if !fn.pat.Match(buf) {
-		return fn.next.Process(buf)
+		return fn.next.Process(buf, ateof)
 	}
-	return nil
+	return 0, nil
 }
 
 //// formatting and output
@@ -287,25 +238,17 @@ type delimer struct {
 	next  command
 }
 
-func (fr *fmter) Process(buf []byte) error {
+func (fr *fmter) Process(buf []byte, ateof bool) (off int, err error) {
 	fr.tmp.Reset()
-	_, err := fmt.Fprintf(&fr.tmp, fr.fmt, buf)
-	if err == nil {
-		err = fr.next.Process(fr.tmp.Bytes())
-	}
-	return err
+	_, _ = fmt.Fprintf(&fr.tmp, fr.fmt, buf)
+	return fr.next.Process(fr.tmp.Bytes(), ateof)
 }
 
-func (dr *delimer) Process(buf []byte) error {
+func (dr *delimer) Process(buf []byte, ateof bool) (off int, err error) {
 	dr.tmp.Reset()
-	_, err := dr.tmp.Write(buf)
-	if err == nil {
-		_, err = dr.tmp.Write(dr.delim)
-	}
-	if err == nil {
-		err = dr.next.Process(dr.tmp.Bytes())
-	}
-	return err
+	_, _ = dr.tmp.Write(buf)
+	_, _ = dr.tmp.Write(dr.delim)
+	return dr.next.Process(dr.tmp.Bytes(), ateof)
 }
 
 type writer struct {
@@ -322,29 +265,29 @@ type delimWriter struct {
 	w     io.Writer
 }
 
-func (wr writer) Process(buf []byte) error {
+func (wr writer) Process(buf []byte, ateof bool) (off int, err error) {
 	if buf == nil {
-		return nil
+		return 0, nil
 	}
-	_, err := wr.w.Write(buf)
-	return err
+	_, err = wr.w.Write(buf)
+	return len(buf), err
 }
 
-func (fw fmtWriter) Process(buf []byte) error {
+func (fw fmtWriter) Process(buf []byte, ateof bool) (off int, err error) {
 	if buf == nil {
-		return nil
+		return 0, nil
 	}
-	_, err := fmt.Fprintf(fw.w, fw.fmt, buf)
-	return err
+	_, err = fmt.Fprintf(fw.w, fw.fmt, buf)
+	return len(buf), err
 }
 
-func (dw delimWriter) Process(buf []byte) error {
+func (dw delimWriter) Process(buf []byte, ateof bool) (off int, err error) {
 	if buf == nil {
-		return nil
+		return 0, nil
 	}
-	_, err := dw.w.Write(buf)
+	_, err = dw.w.Write(buf)
 	if err == nil {
 		_, err = dw.w.Write(dw.delim)
 	}
-	return err
+	return len(buf), err
 }

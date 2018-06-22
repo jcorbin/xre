@@ -39,20 +39,20 @@ func run() error {
 		case io.ReaderFrom:
 			_, err := impl.ReadFrom(os.Stdin)
 			return err
-
-		case streamingCommand:
-			if !useMmap {
-				rb := readBuf{buf: make([]byte, 0, minRead)} // TODO configurable buffer size
-				return rb.Process(impl, os.Stdin)
-			}
 		}
 
-		buf, fin, err := mmap(os.Stdin)
-		if err != nil {
+		if useMmap {
+			buf, fin, err := mmap(os.Stdin)
+			if err != nil {
+				return err
+			}
+			defer fin()
+			_, err = cmd.Process(buf, true)
 			return err
 		}
-		defer fin()
-		return cmd.Process(buf)
+
+		rb := readBuf{buf: make([]byte, 0, minRead)} // TODO configurable buffer size
+		return rb.Process(cmd, os.Stdin)
 	})
 }
 
