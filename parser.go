@@ -109,18 +109,12 @@ func scanY(s string) (lnk linker, _ string, err error) {
 	}
 }
 
-func scanG(s string) (lnk linker, _ string, _ error) {
+func scanG(s string) (linker, string, error) { return scanGV(false, s) }
+func scanV(s string) (linker, string, error) { return scanGV(true, s) }
+func scanGV(neg bool, s string) (lnk linker, _ string, _ error) {
 	re, s, err := scanPat(s[0], s[1:])
 	if err == nil {
-		lnk, err = gLinker(re, false)
-	}
-	return lnk, s, err
-}
-
-func scanV(s string) (lnk linker, _ string, _ error) {
-	re, s, err := scanPat(s[0], s[1:])
-	if err == nil {
-		lnk, err = gLinker(re, true)
+		lnk, err = gLinker(re, neg)
 	}
 	return lnk, s, err
 }
