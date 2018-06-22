@@ -40,32 +40,34 @@ func scanCommand(s string) ([]linker, error) {
 
 //// command scanners
 
-func scanX(s string) (lnk linker, _ string, _ error) {
-	switch s[0] {
-	case '[':
-		return scanXBal('[', ']', s[1:])
-	case '{':
-		return scanXBal('{', '}', s[1:])
-	case '(':
-		return scanXBal('(', ')', s[1:])
-	case '<':
-		return scanXBal('<', '>', s[1:])
-	default:
-		re, s, err := scanPat(s[0], s[1:])
+var balancedOpens = map[byte]byte{
+	'[': ']',
+	'{': '}',
+	'(': ')',
+	'<': '>',
+}
+
+func scanX(s string) (lnk linker, _ string, err error) {
+	var c byte
+	if len(s) > 0 {
+		c = s[0]
+	}
+	switch c {
+
+	case '[', '{', '(', '<':
+		s = s[1:]
+		lnk, err = xBalLinker(c, balancedOpens[c], true)
+
+	case '/':
+		var re *regexp.Regexp
+		re, s, err = scanPat(c, s[1:])
 		if err == nil {
 			lnk, err = xReLinker(re)
 		}
-		return lnk, s, err
-	}
-}
 
-func scanXBal(start, end byte, s string) (lnk linker, _ string, _ error) {
-	inc := false
-	if len(s) > 0 && s[0] == end {
-		inc = true // TODO consider the usability of this
-		s = s[1:]
+	default:
+		err = fmt.Errorf("unrecognized x command")
 	}
-	lnk, err := xBalLinker(start, end, inc)
 	return lnk, s, err
 }
 
@@ -75,6 +77,10 @@ func scanY(s string) (lnk linker, _ string, err error) {
 		c = s[0]
 	}
 	switch c {
+
+	case '[', '{', '(', '<':
+		s = s[1:]
+		lnk, err = xBalLinker(c, balancedOpens[c], false)
 
 	case '/':
 		s = s[1:]
@@ -88,7 +94,6 @@ func scanY(s string) (lnk linker, _ string, err error) {
 		if err == nil {
 			lnk, err = yReLinker(pats[0], pats[1])
 		}
-		return lnk, s, err
 
 	case '"':
 		var delim, cutset string
@@ -101,12 +106,12 @@ func scanY(s string) (lnk linker, _ string, err error) {
 		if err == nil {
 			lnk, err = yDelimLinker(delim, cutset)
 		}
-		return lnk, s, err
 
 	default:
 		// TODO could default to line-delimiting (aka as if y"\n" was given)
-		return nil, s, fmt.Errorf("unrecognized y command, expecting y\"delim\", y/delimPattern/, or y/startPattern/endPattern/")
+		err = fmt.Errorf("unrecognized y command")
 	}
+	return lnk, s, err
 }
 
 func scanG(s string) (linker, string, error) { return scanGV(false, s) }

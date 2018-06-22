@@ -8,12 +8,14 @@ maximum Rob Pike (et al) it is written in [Go][go].
 
 ## What?
 
-- a new `x/re/` command extracts structure matched be a regular expression
-- ... `x[` `x{` `x(` and `x<` extract content within a balanced pair of braces
-- ... specifying the closing brace includes the braces in the match, e.g. `x[]`
+A short comparison to the grep/ed model:
+
+- a new `x/re/` command extracts structure matched by a regular expression
+- ... `x[` `x{` `x(` and `x<` extract a balanced pair of braces
 - a new `y/re/` command extracts structure delimited by a regular expression
 - ... `y"delim"` extracts structure between occurrences of a static delimiter, e.g. `y"\n"` for classic UNIX line-orientation
 - ... `y/start/end/` extracts structure between two regular expressions
+- ... `y[` `y{` `y(` and `y<` extract content within a balanced pair of braces
 - the `g/re/` command filters the current buffer (as extracted by `x` or `y`) if the given pattern matches
 - the `v/re/` command filters the current buffer (as extracted by `x` or `y`) if the given pattern doesn't matches
 - the `p` command prints
