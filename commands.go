@@ -323,16 +323,25 @@ type delimWriter struct {
 }
 
 func (wr writer) Process(buf []byte) error {
+	if buf == nil {
+		return nil
+	}
 	_, err := wr.w.Write(buf)
 	return err
 }
 
 func (fw fmtWriter) Process(buf []byte) error {
+	if buf == nil {
+		return nil
+	}
 	_, err := fmt.Fprintf(fw.w, fw.fmt, buf)
 	return err
 }
 
 func (dw delimWriter) Process(buf []byte) error {
+	if buf == nil {
+		return nil
+	}
 	_, err := dw.w.Write(buf)
 	if err == nil {
 		_, err = dw.w.Write(dw.delim)
