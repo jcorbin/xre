@@ -17,6 +17,7 @@ var commands = map[byte]scanner{
 	'y': scanY,
 	'g': scanG,
 	'v': scanV,
+	'a': scanA,
 	'p': scanP,
 }
 
@@ -120,6 +121,14 @@ func scanGV(neg bool, s string) (lnk linker, _ string, _ error) {
 	re, s, err := scanPat(s[0], s[1:])
 	if err == nil {
 		lnk, err = gLinker(re, neg)
+	}
+	return lnk, s, err
+}
+
+func scanA(s string) (lnk linker, _ string, err error) {
+	lnk, s, err = scanP(s)
+	if err == nil {
+		lnk = aLinker(lnk)
 	}
 	return lnk, s, err
 }

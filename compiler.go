@@ -116,6 +116,15 @@ func gLinker(pat *regexp.Regexp, negate bool) (linker, error) {
 	}, nil
 }
 
+func aLinker(with linker) linker {
+	return func(next command) (command, error) {
+		if _, is := next.(*accum); !is {
+			next = &accum{next: next}
+		}
+		return with(next)
+	}
+}
+
 func pLinker(format string, delim []byte) (linker, error) {
 	return func(next command) (command, error) {
 		if format != "" && delim != nil {

@@ -34,6 +34,7 @@ func (bsst bytesSplitTrimmer) String() string { return fmt.Sprintf("%q~%q", bsst
 func (fl filter) String() string    { return fmt.Sprintf("g/%v/%v", regexpString(fl.pat), fl.next) }
 func (fn filterNeg) String() string { return fmt.Sprintf("v/%v/%v", regexpString(fn.pat), fn.next) }
 
+func (ac accum) String() string       { return fmt.Sprintf("a%s", fmt.Sprint(ac.next)[1:]) }
 func (fr fmter) String() string       { return fmt.Sprintf("p%%%q%v", fr.fmt, fr.next) }
 func (dr delimer) String() string     { return fmt.Sprintf("p%q%v", dr.delim, dr.next) }
 func (wr writer) String() string      { return "p" }

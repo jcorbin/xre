@@ -280,6 +280,11 @@ func (fn filterNeg) Process(buf []byte, ateof bool) (off int, err error) {
 
 //// formatting and output
 
+type accum struct {
+	tmp  bytes.Buffer
+	next command
+}
+
 type fmter struct {
 	fmt  string
 	tmp  bytes.Buffer
@@ -290,6 +295,17 @@ type delimer struct {
 	delim []byte
 	tmp   bytes.Buffer
 	next  command
+}
+
+func (ac *accum) Process(buf []byte, ateof bool) (off int, err error) {
+	if buf != nil {
+		_, _ = ac.tmp.Write(buf)
+	}
+	if ateof {
+		_, err = ac.next.Process(ac.tmp.Bytes(), true) // TODO hack; reconsider ateof passing
+		ac.tmp.Reset()
+	}
+	return len(buf), err
 }
 
 func (fr *fmter) Process(buf []byte, ateof bool) (off int, err error) {
