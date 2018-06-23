@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"regexp"
@@ -94,6 +95,45 @@ func (bd betweenDelimSplit) ReadFrom(r io.Reader) (n int64, err error) {
 }
 
 //// parsing
+
+func yReLinker(start, end *regexp.Regexp) (linker, error) {
+	return func(next command) (command, error) {
+		if end != nil {
+			return between{start, end, next}, nil
+		}
+		return betweenDelimRe{start, next}, nil
+	}, nil
+}
+
+func yDelimLinker(delim, cutset string) (linker, error) {
+	return func(next command) (command, error) {
+		if len(delim) == 0 {
+			return nil, errors.New("empty y\"delimiter\"")
+		}
+		if allNewlines(delim) {
+			return betweenDelimSplit{lineSplitter(len(delim)), next}, nil
+		}
+		if cutset != "" {
+			if len(delim) == 1 {
+				return betweenDelimSplit{byteSplitTrimmer{delim[0], cutset}, next}, nil
+			}
+			return betweenDelimSplit{bytesSplitTrimmer{[]byte(delim), cutset}, next}, nil
+		}
+		if len(delim) == 1 {
+			return betweenDelimSplit{byteSplitter(delim[0]), next}, nil
+		}
+		return betweenDelimSplit{bytesSplitter(delim), next}, nil
+	}, nil
+}
+
+func allNewlines(delim string) bool {
+	for i := 0; i < len(delim); i++ {
+		if delim[i] != '\n' {
+			return false
+		}
+	}
+	return true
+}
 
 var balancedOpens = map[byte]byte{
 	'[': ']',

@@ -105,6 +105,30 @@ func (eb extractBalancedInc) Process(buf []byte, ateof bool) (off int, err error
 
 //// parsing
 
+func xReLinker(pat *regexp.Regexp) (linker, error) {
+	return func(next command) (command, error) {
+		switch n := pat.NumSubexp(); n {
+		case 0:
+			return extract{pat, next}, nil
+
+		case 1:
+			return extractSub{pat, next}, nil
+
+		default:
+			return nil, fmt.Errorf("extraction with %v sub-patterns not supported", n)
+		}
+	}, nil
+}
+
+func xBalLinker(start, end byte, inc bool) (linker, error) {
+	return func(next command) (command, error) {
+		if inc {
+			return extractBalancedInc{start, end, next}, nil
+		}
+		return extractBalanced{start, end, next}, nil
+	}, nil
+}
+
 func scanX(s string) (lnk linker, _ string, err error) {
 	var c byte
 	if len(s) > 0 {

@@ -75,6 +75,44 @@ func (dw delimWriter) Process(buf []byte, ateof bool) (off int, err error) {
 
 //// parsing
 
+func pLinker(format string, delim []byte) (linker, error) {
+	return func(next command) (command, error) {
+		if format != "" && delim != nil {
+			format, delim = fmt.Sprintf("%s%s", format, delim), nil
+		}
+		if format == "" && len(delim) == 0 {
+			return next, nil
+		}
+		// from here on we have either have format or delim
+
+		switch nc := next.(type) {
+		case writer:
+			if format != "" {
+				return fmtWriter{fmt: format, w: nc.w}, nil
+			}
+			return delimWriter{delim: delim, w: nc.w}, nil
+
+		case fmtWriter:
+			if format != "" {
+				return fmtWriter{fmt: format + nc.fmt, w: nc.w}, nil
+			}
+			return delimWriter{delim: delim, w: nc.w}, nil
+
+		case delimWriter:
+			if format != "" {
+				return fmtWriter{fmt: format + string(nc.delim), w: nc.w}, nil
+			}
+			return delimWriter{delim: append(delim, nc.delim...), w: nc.w}, nil
+
+		default:
+			if format != "" {
+				return &fmter{fmt: format, next: next}, nil
+			}
+			return &delimer{delim: delim, next: next}, nil
+		}
+	}, nil
+}
+
 func scanP(s string) (lnk linker, _ string, err error) {
 	var c byte
 	if len(s) > 0 {

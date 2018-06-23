@@ -67,7 +67,10 @@ func mmap(f filelike) ([]byte, func() error, error) {
 
 //// parsing
 
-var errNoSep = errors.New("missing separator")
+var (
+	errNoCommands = errors.New("no command(s) given")
+	errNoSep      = errors.New("missing separator")
+)
 
 type scanner func(string) (linker, string, error) // TODO consider upgrading to []linker
 
@@ -77,6 +80,41 @@ var commands = map[byte]scanner{
 	'g': scanG,
 	'v': scanV,
 	'p': scanP,
+}
+
+type linker func(command) (command, error)
+
+func compileCommands(args []string, w io.Writer) (cmd command, err error) {
+	// TODO support more complex command pipelines than single straight lines
+	var lnks []linker
+	for _, arg := range args {
+		more, err := scanCommand(arg)
+		if err != nil {
+			return nil, err
+		}
+
+		lnks = append(lnks, more...)
+
+		if err != nil {
+			return nil, err
+		}
+	}
+	if len(lnks) == 0 {
+		return nil, errNoCommands
+	}
+
+	cmd = writer{w}
+	for i := len(lnks) - 1; i >= 0; i-- {
+		cmd, err = lnks[i](cmd)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	return cmd, nil
 }
 
 // NOTE not actually a "scanner" due to needing to de-confuse the `type scanner` as noted above.

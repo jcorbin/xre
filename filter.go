@@ -31,6 +31,15 @@ func (fn filterNeg) Process(buf []byte, ateof bool) (off int, err error) {
 
 //// parsing
 
+func gLinker(pat *regexp.Regexp, negate bool) (linker, error) {
+	return func(next command) (command, error) {
+		if negate {
+			return filterNeg{pat, next}, nil
+		}
+		return filter{pat, next}, nil
+	}, nil
+}
+
 func scanG(s string) (linker, string, error) { return scanGV(false, s) }
 func scanV(s string) (linker, string, error) { return scanGV(true, s) }
 func scanGV(neg bool, s string) (lnk linker, _ string, _ error) {
