@@ -85,7 +85,7 @@ func (bd betweenDelimSplit) ReadFrom(r io.Reader) (n int64, err error) {
 	// sc.Buffer() // TODO raise the roof
 	sc.Split(bd.split.Split)
 	for err == nil && sc.Scan() {
-		_, err = bd.next.Process(sc.Bytes(), false)
+		_, err = bd.next.Process(sc.Bytes(), true)
 	}
 	if scerr := sc.Err(); err == nil {
 		err = scerr
