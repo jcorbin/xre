@@ -118,21 +118,20 @@ func compileCommands(args []string, w io.Writer) (cmd command, err error) {
 }
 
 // NOTE not actually a "scanner" due to needing to de-confuse the `type scanner` as noted above.
-func scanCommand(s string) ([]linker, error) {
-	var lnks []linker
+func scanCommand(s string) (lnks []linker, err error) {
 	for len(s) > 0 {
-		scan, def := commands[s[0]]
-		if !def {
-			return nil, fmt.Errorf("unrecognized command %q", s[0])
+		var lnk linker
+		if scan, def := commands[s[0]]; def {
+			lnk, s, err = scan(s[1:])
+		} else {
+			err = fmt.Errorf("unrecognized command %q", s[0])
 		}
-		lnk, cont, err := scan(s[1:])
 		if err != nil {
-			return nil, err
+			break
 		}
 		lnks = append(lnks, lnk)
-		s = cont
 	}
-	return lnks, nil
+	return lnks, err
 }
 
 func scanDelim(sep byte, r string) (part, rest string, err error) {
