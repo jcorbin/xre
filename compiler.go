@@ -11,6 +11,15 @@ var errNoCommands = errors.New("no command(s) given")
 
 type linker func(command) (command, error)
 
+func addrRangeLinker(start, end int) (linker, error) {
+	if start < 0 || end < 0 {
+		return nil, errors.New("negative addresses not supported") // TODO
+	}
+	return func(next command) (command, error) {
+		return &addrRange{start: start, end: end, next: next}, nil
+	}, nil
+}
+
 func compileCommands(args []string, w io.Writer) (cmd command, err error) {
 	// TODO support more complex command pipelines than single straight lines
 	var lnks []linker

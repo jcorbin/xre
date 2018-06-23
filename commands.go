@@ -67,6 +67,27 @@ func mmap(f filelike) ([]byte, func() error, error) {
 	}, nil
 }
 
+//// record addressing and selection
+
+// TODO implement ReadFrom on every address selector, so that if it gets used
+// as a top-level, we can default to scanning by some default split (e.g. lineSplitter(1))
+
+type addrRange struct {
+	start, end, n int
+	next          command
+}
+
+func (ar *addrRange) Process(buf []byte, ateof bool) (off int, err error) {
+	ar.n++
+	if ar.start <= ar.n && ar.n <= ar.end {
+		_, err = ar.next.Process(buf, ar.n == ar.end)
+	}
+	if ateof {
+		ar.n = 0
+	}
+	return len(buf), err
+}
+
 //// extraction by pattern
 
 type extract struct {

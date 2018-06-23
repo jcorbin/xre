@@ -25,10 +25,16 @@ var commands = map[byte]scanner{
 func scanCommand(s string) (lnks []linker, err error) {
 	for len(s) > 0 {
 		var lnk linker
-		if scan, def := commands[s[0]]; def {
-			lnk, s, err = scan(s[1:])
-		} else {
-			err = fmt.Errorf("unrecognized command %q", s[0])
+		var n int
+		if n, s, err = scanInt(s); err == nil {
+			lnk, s, err = scanAddr(n, s)
+		} else if err == errIntExpected {
+			err = nil
+			if scan, def := commands[s[0]]; def {
+				lnk, s, err = scan(s[1:])
+			} else {
+				err = fmt.Errorf("unrecognized command %q", s[0])
+			}
 		}
 		if err != nil {
 			break
@@ -36,6 +42,50 @@ func scanCommand(s string) (lnks []linker, err error) {
 		lnks = append(lnks, lnk)
 	}
 	return lnks, err
+}
+
+//// address scanning
+
+func scanAddr(n int, s string) (lnk linker, _ string, err error) {
+	var c byte
+	if len(s) > 0 {
+		c = s[0]
+	}
+	switch c {
+
+	case ':':
+		s = s[1:]
+		var m int
+		if m, s, err = scanInt(s); err == nil {
+			lnk, err = addrRangeLinker(n, m)
+		}
+
+	default:
+		// TODO support "n1"
+		// TODO support "n1,n2,n3,..."
+		// TODO support "n~m"
+		err = fmt.Errorf("unsupported address character %q", c)
+	}
+	return lnk, s, err
+}
+
+var errIntExpected = errors.New("missing number")
+
+func scanInt(s string) (n int, _ string, err error) {
+	numDigits := 0
+	for len(s) > 0 {
+		if c := s[0]; '0' <= c && c <= '9' {
+			n = 10*n + int(c-'0')
+			s = s[1:]
+			numDigits++
+		} else {
+			break
+		}
+	}
+	if numDigits == 0 {
+		err = errIntExpected
+	}
+	return n, s, err
 }
 
 //// command scanners

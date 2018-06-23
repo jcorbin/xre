@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+func (ar addrRange) String() string { return fmt.Sprintf("%v:%v%v", ar.start, ar.end, ar.next) }
+
 func (ex extract) String() string    { return fmt.Sprintf("x/%v/%v", regexpString(ex.pat), ex.next) }
 func (ex extractSub) String() string { return fmt.Sprintf("x/%v/%v", regexpString(ex.pat), ex.next) }
 func (ex extractBalanced) String() string {
