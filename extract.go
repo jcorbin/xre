@@ -1,6 +1,9 @@
 package main
 
-import "regexp"
+import (
+	"fmt"
+	"regexp"
+)
 
 type extract struct {
 	pat  *regexp.Regexp
@@ -98,4 +101,30 @@ func (eb extractBalancedInc) Process(buf []byte, ateof bool) (off int, err error
 		}
 	}
 	return off, err
+}
+
+//// parsing
+
+func scanX(s string) (lnk linker, _ string, err error) {
+	var c byte
+	if len(s) > 0 {
+		c = s[0]
+	}
+	switch c {
+
+	case '[', '{', '(', '<':
+		s = s[1:]
+		lnk, err = xBalLinker(c, balancedOpens[c], true)
+
+	case '/':
+		var re *regexp.Regexp
+		re, s, err = scanPat(c, s[1:])
+		if err == nil {
+			lnk, err = xReLinker(re)
+		}
+
+	default:
+		err = fmt.Errorf("unrecognized x command")
+	}
+	return lnk, s, err
 }

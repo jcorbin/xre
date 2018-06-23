@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 )
@@ -70,4 +71,37 @@ func (dw delimWriter) Process(buf []byte, ateof bool) (off int, err error) {
 		_, err = dw.w.Write(dw.delim)
 	}
 	return len(buf), err
+}
+
+//// parsing
+
+func scanP(s string) (lnk linker, _ string, err error) {
+	var c byte
+	if len(s) > 0 {
+		c = s[0]
+	}
+	switch c {
+
+	case '%':
+		if len(s) < 3 || s[1] != '"' {
+			return nil, s, errors.New("missing format scring to p%")
+		}
+		s = s[1:]
+		var format string
+		format, s, err = scanString(s[0], s[1:])
+		if err == nil {
+			lnk, err = pLinker(format, nil)
+		}
+
+	case '"':
+		var tmp string
+		tmp, s, err = scanString(s[0], s[1:])
+		if err == nil {
+			lnk, err = pLinker("", []byte(tmp))
+		}
+
+	default:
+		lnk, err = pLinker("", nil)
+	}
+	return lnk, s, err
 }

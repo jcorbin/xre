@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io"
 	"regexp"
 )
@@ -89,4 +90,56 @@ func (bd betweenDelimSplit) ReadFrom(r io.Reader) (n int64, err error) {
 	}
 	// FIXME n is always 0, since there's no telling how many bytes the scanner consumed
 	return n, err
+}
+
+//// parsing
+
+var balancedOpens = map[byte]byte{
+	'[': ']',
+	'{': '}',
+	'(': ')',
+	'<': '>',
+}
+
+func scanY(s string) (lnk linker, _ string, err error) {
+	var c byte
+	if len(s) > 0 {
+		c = s[0]
+	}
+	switch c {
+
+	case '[', '{', '(', '<':
+		s = s[1:]
+		lnk, err = xBalLinker(c, balancedOpens[c], false)
+
+	case '/':
+		s = s[1:]
+		var pats [2]*regexp.Regexp
+		for i := 0; len(s) > 0 && i < 2; i++ {
+			pats[i], s, err = scanPat(c, s)
+			if err != nil {
+				break
+			}
+		}
+		if err == nil {
+			lnk, err = yReLinker(pats[0], pats[1])
+		}
+
+	case '"':
+		var delim, cutset string
+		delim, s, err = scanString(c, s[1:])
+		if err == nil {
+			if len(s) > 3 && s[0] == '~' && s[1] == '"' {
+				cutset, s, err = scanString(c, s[1:])
+			}
+		}
+		if err == nil {
+			lnk, err = yDelimLinker(delim, cutset)
+		}
+
+	default:
+		// TODO could default to line-delimiting (aka as if y"\n" was given)
+		err = fmt.Errorf("unrecognized y command")
+	}
+	return lnk, s, err
 }

@@ -1,9 +1,13 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"regexp"
+	"strconv"
+	"strings"
 	"syscall"
 )
 
@@ -59,4 +63,74 @@ func mmap(f filelike) ([]byte, func() error, error) {
 	return data, func() error {
 		return syscall.Munmap(data)
 	}, nil
+}
+
+//// parsing
+
+var errNoSep = errors.New("missing separator")
+
+type scanner func(string) (linker, string, error) // TODO consider upgrading to []linker
+
+var commands = map[byte]scanner{
+	'x': scanX,
+	'y': scanY,
+	'g': scanG,
+	'v': scanV,
+	'p': scanP,
+}
+
+// NOTE not actually a "scanner" due to needing to de-confuse the `type scanner` as noted above.
+func scanCommand(s string) ([]linker, error) {
+	var lnks []linker
+	for len(s) > 0 {
+		scan, def := commands[s[0]]
+		if !def {
+			return nil, fmt.Errorf("unrecognized command %q", s[0])
+		}
+		lnk, cont, err := scan(s[1:])
+		if err != nil {
+			return nil, err
+		}
+		lnks = append(lnks, lnk)
+		s = cont
+	}
+	return lnks, nil
+}
+
+func scanDelim(sep byte, r string) (part, rest string, err error) {
+	// TODO support escaping
+	i := strings.Index(r, string(sep))
+	if i < 0 {
+		return "", "", errNoSep
+	}
+	return r[:i], r[i+1:], nil
+}
+
+func scanPat(sep byte, r string) (*regexp.Regexp, string, error) {
+	pat, rest, err := scanDelim(sep, r)
+	if err != nil {
+		return nil, "", err
+	}
+
+	if sep == '"' || sep == '\'' {
+		pat = regexp.QuoteMeta(pat)
+	}
+
+	if len(rest) > 0 && rest[0] == 'i' {
+		// TODO reconsider the case insensitivity affordance
+		pat = "(?i:" + pat + ")"
+		rest = rest[1:]
+	}
+
+	pat = "(?ms:" + pat + ")"
+	re, err := regexp.Compile(pat)
+	return re, rest, err
+}
+
+func scanString(sep byte, s string) (val, rest string, err error) {
+	if val, s, err = scanDelim(sep, s); err == nil {
+		val = fmt.Sprintf("%s%s%s", string(sep), val, string(sep))
+		val, err = strconv.Unquote(val)
+	}
+	return val, s, err
 }

@@ -25,3 +25,15 @@ func (fn filterNeg) Process(buf []byte, ateof bool) (off int, err error) {
 	}
 	return 0, nil
 }
+
+//// parsing
+
+func scanG(s string) (linker, string, error) { return scanGV(false, s) }
+func scanV(s string) (linker, string, error) { return scanGV(true, s) }
+func scanGV(neg bool, s string) (lnk linker, _ string, _ error) {
+	re, s, err := scanPat(s[0], s[1:])
+	if err == nil {
+		lnk, err = gLinker(re, neg)
+	}
+	return lnk, s, err
+}
