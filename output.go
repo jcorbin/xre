@@ -122,11 +122,10 @@ func scanP(s string) (lnk linker, _ string, err error) {
 
 	case '%':
 		if len(s) < 3 || s[1] != '"' {
-			return nil, s, errors.New("missing format scring to p%")
+			return nil, s, errors.New("missing format string to p%")
 		}
-		s = s[1:]
 		var format string
-		format, s, err = scanString(s[0], s[1:])
+		format, s, err = scanString(s[1], s[2:])
 		if err == nil {
 			lnk, err = pLinker(format, nil)
 		}
