@@ -1,0 +1,10 @@
+- balanced
+  - add balanced level selection
+  - add balanced peer selection
+  - support quotation / escaping? or is that a different concept?
+- reconsider command v streaminng command
+- default p"delim" when y"delim"
+- context (location stack)?
+- recursion
+- definition
+- unify the scanner and linker layers
