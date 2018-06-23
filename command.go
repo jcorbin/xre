@@ -10,7 +10,10 @@ import (
 	"strings"
 )
 
-var errNoSep = errors.New("missing separator")
+var (
+	errIntExpected = errors.New("missing number")
+	errNoSep       = errors.New("missing separator")
+)
 
 type scanner func(string) (Command, string, error)
 
@@ -121,6 +124,10 @@ func scanCommand(s string) (Command, string, error) {
 func scanCommandAtom(s string) (Command, string, error) {
 	if s == "" {
 		return nil, s, errors.New("missing command at end of input")
+	}
+	// TODO reconsider address selection language
+	if isNumber(s[0]) {
+		return scanAddr(s)
 	}
 	scan, def := commands[s[0]]
 	if !def {
@@ -266,6 +273,23 @@ func scanString(sep byte, s string) (val, rest string, err error) {
 		val, err = strconv.Unquote(val)
 	}
 	return val, s, err
+}
+
+func isNumber(c byte) bool {
+	return '0' <= c && c <= '9'
+}
+
+func scanInt(s string) (n int, _ string, err error) {
+	numDigits := 0
+	for len(s) > 0 && isNumber(s[0]) {
+		n = 10*n + int(s[0]-'0')
+		s = s[1:]
+		numDigits++
+	}
+	if numDigits == 0 {
+		err = errIntExpected
+	}
+	return n, s, err
 }
 
 func regexpString(re *regexp.Regexp) string {
