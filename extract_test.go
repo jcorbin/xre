@@ -76,5 +76,23 @@ func Test_extract(t *testing.T) {
 			hound
 			`),
 		},
+
+		{
+			name: "more field extraction",
+			cmd:  `x/(.*)\n/ x/^([^\s]+).*\s+(\d+)$/ p%"%q\n"`,
+			in: stripBlockSpace(`
+			aee 42
+			bee	dee 99
+			cee 11
+			`),
+			out: stripBlockSpace(`
+			"aee"
+			"42"
+			"bee"
+			"99"
+			"cee"
+			"11"
+			`),
+		},
 	}.run(t)
 }
