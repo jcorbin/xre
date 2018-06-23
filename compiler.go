@@ -50,11 +50,10 @@ func xReLinker(pat *regexp.Regexp) (linker, error) {
 		case 0:
 			return extract{pat, next}, nil
 
-		case 1:
-			return extractSub{pat, next}, nil
+		// TODO re-specialize the one-submatch case?
 
 		default:
-			return nil, fmt.Errorf("extraction with %v sub-patterns not supported", n)
+			return extractSub{pat, next}, nil
 		}
 	}, nil
 }

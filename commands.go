@@ -111,12 +111,17 @@ func (ex extractSub) Process(buf []byte, ateof bool) (off int, err error) {
 		if locs == nil {
 			break
 		}
-		m := buf[off+locs[2] : off+locs[3]] // extracted match
-		if off += locs[1]; off < len(buf) {
-			_, err = ex.next.Process(m, false)
-		} else {
-			_, err = ex.next.Process(m, ateof)
+		for li := 2; err == nil; {
+			m := buf[off+locs[li] : off+locs[li+1]] // extracted sub-match
+			li += 2
+			if li < len(locs) {
+				_, err = ex.next.Process(m, false)
+			} else {
+				_, err = ex.next.Process(m, true)
+				break
+			}
 		}
+		off += locs[1]
 	}
 	return off, err
 }
