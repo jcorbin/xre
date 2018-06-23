@@ -141,7 +141,7 @@ func pLinker(format string, delim []byte) (linker, error) {
 
 		case delimWriter:
 			if format != "" {
-				return fmtWriter{fmt: format, w: nc.w}, nil
+				return fmtWriter{fmt: format + string(nc.delim), w: nc.w}, nil
 			}
 			return delimWriter{delim: append(delim, nc.delim...), w: nc.w}, nil
 
