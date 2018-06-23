@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -231,25 +232,42 @@ func (bd betweenDelimRe) Process(buf []byte, ateof bool) (off int, err error) {
 	return off, err
 }
 
-func (bd betweenDelimSplit) Process(buf []byte, ateof bool) (off int, err error) {
-	// TODO technically we should use a split func that doesn't consume the last partial if !ateof
-	_, err = bd.ReadFrom(bytes.NewReader(buf))
-	return len(buf), err // FIXME would be great to get the truth from ReadFrom below
-}
+var errTooManyEmpties = errors.New("too many empty tokens without progressing")
 
-func (bd betweenDelimSplit) ReadFrom(r io.Reader) (n int64, err error) {
-	// TODO inclusive variant?
-	sc := bufio.NewScanner(r)
-	// sc.Buffer() // TODO raise the roof
-	sc.Split(bd.split.Split)
-	for err == nil && sc.Scan() {
-		_, err = bd.next.Process(sc.Bytes(), false)
+func (bd betweenDelimSplit) Process(buf []byte, ateof bool) (off int, err error) {
+	const maxConsecutiveEmptyReads = 100
+	empties := 0
+	for err == nil && off < len(buf) {
+		var advance int
+		var token []byte
+		if advance, token, err = bd.split.Split(buf[off:], ateof); advance < 0 {
+			if err == nil {
+				err = bufio.ErrNegativeAdvance
+			}
+		} else if advance > len(buf)-off {
+			if err == nil {
+				err = bufio.ErrAdvanceTooFar
+			}
+		} else {
+			off += advance
+		}
+		if err != nil || token == nil {
+			if err == bufio.ErrFinalToken {
+				_, err = bd.next.Process(token, true)
+			}
+			break
+		}
+		if advance > 0 {
+			empties = 0
+		} else {
+			// Returning tokens not advancing input at EOF.
+			if empties++; empties > maxConsecutiveEmptyReads {
+				return off, errTooManyEmpties
+			}
+		}
+		_, err = bd.next.Process(token, true)
 	}
-	if scerr := sc.Err(); err == nil {
-		err = scerr
-	}
-	// FIXME n is always 0, since there's no telling how many bytes the scanner consumed
-	return n, err
+	return off, err
 }
 
 //// filtering
