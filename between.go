@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"strings"
 )
 
 type between struct {
@@ -143,3 +144,19 @@ func scanY(s string) (lnk linker, _ string, err error) {
 	}
 	return lnk, s, err
 }
+
+func (by between) String() string {
+	return fmt.Sprintf("y/%v/%v/%v", regexpString(by.start), regexpString(by.end), by.next)
+}
+func (bd betweenDelimRe) String() string {
+	return fmt.Sprintf("y/%v/%v", regexpString(bd.pat), bd.next)
+}
+func (bd betweenDelimSplit) String() string {
+	return fmt.Sprintf("y%v%v", bd.split, bd.next)
+}
+
+func (ls lineSplitter) String() string        { return fmt.Sprintf("%q", strings.Repeat(`\n`, int(ls))) }
+func (bs byteSplitter) String() string        { return fmt.Sprintf("%q", string(bs)) }
+func (bss bytesSplitter) String() string      { return fmt.Sprintf("%q", []byte(bss)) }
+func (bst byteSplitTrimmer) String() string   { return fmt.Sprintf("%q~%q", bst.delim, bst.cutset) }
+func (bsst bytesSplitTrimmer) String() string { return fmt.Sprintf("%q~%q", bsst.delim, bsst.cutset) }

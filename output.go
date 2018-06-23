@@ -105,3 +105,9 @@ func scanP(s string) (lnk linker, _ string, err error) {
 	}
 	return lnk, s, err
 }
+
+func (fr fmter) String() string       { return fmt.Sprintf("p%%%q%v", fr.fmt, fr.next) }
+func (dr delimer) String() string     { return fmt.Sprintf("p%q%v", dr.delim, dr.next) }
+func (wr writer) String() string      { return "p" }
+func (fw fmtWriter) String() string   { return fmt.Sprintf("p%%%q", fw.fmt) }
+func (dw delimWriter) String() string { return fmt.Sprintf("p%q", dw.delim) }

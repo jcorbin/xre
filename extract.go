@@ -128,3 +128,16 @@ func scanX(s string) (lnk linker, _ string, err error) {
 	}
 	return lnk, s, err
 }
+
+func (ex extract) String() string {
+	return fmt.Sprintf("x/%v/%v", regexpString(ex.pat), ex.next)
+}
+func (ex extractSub) String() string {
+	return fmt.Sprintf("x/%v/%v", regexpString(ex.pat), ex.next)
+}
+func (ex extractBalanced) String() string {
+	return fmt.Sprintf("x%s%v", string(ex.open), ex.next)
+}
+func (ex extractBalancedInc) String() string {
+	return fmt.Sprintf("x%s%s%v", string(ex.open), string(ex.close), ex.next)
+}

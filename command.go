@@ -134,3 +134,13 @@ func scanString(sep byte, s string) (val, rest string, err error) {
 	}
 	return val, s, err
 }
+
+func regexpString(re *regexp.Regexp) string {
+	s := re.String()
+	// TODO share with scanPat that adds the prefix
+	if strings.HasPrefix(s, "(?ms:") {
+		s = s[5:]
+		s = s[:len(s)-1]
+	}
+	return s
+}

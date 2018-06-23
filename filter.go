@@ -1,6 +1,9 @@
 package main
 
-import "regexp"
+import (
+	"fmt"
+	"regexp"
+)
 
 type filter struct {
 	pat  *regexp.Regexp
@@ -36,4 +39,11 @@ func scanGV(neg bool, s string) (lnk linker, _ string, _ error) {
 		lnk, err = gLinker(re, neg)
 	}
 	return lnk, s, err
+}
+
+func (fl filter) String() string {
+	return fmt.Sprintf("g/%v/%v", regexpString(fl.pat), fl.next)
+}
+func (fn filterNeg) String() string {
+	return fmt.Sprintf("v/%v/%v", regexpString(fn.pat), fn.next)
 }
