@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"regexp"
 	"strings"
 	"testing"
 	"unicode"
@@ -16,7 +17,7 @@ type cmdTestCase struct {
 	out  []byte
 }
 
-func Test_betweenDelimSplit(t *testing.T) {
+func Test_betweenDelim(t *testing.T) {
 	withTestSink(t, func(out command, run func(tc cmdTestCase)) {
 		for _, tc := range []cmdTestCase{
 			{
@@ -87,6 +88,48 @@ func Test_betweenDelimSplit(t *testing.T) {
 				"therefore:"
 				"- red herring"
 				"- wild leap"
+				`),
+			},
+
+			{
+				name: "words in lines in paragraphs",
+				cmd: betweenDelimSplit{
+					split: lineSplitter(2),
+					next: betweenDelimSplit{
+						split: lineSplitter(1),
+						next: betweenDelimRe{
+							pat:  regexp.MustCompile(`\s+`),
+							next: out,
+						},
+					},
+				},
+				in: stripBlockSpace(`
+				because:
+				- thing
+				- thing
+				- and another thing
+
+				therefore:
+				- red herring
+				- wild leap
+				`),
+				out: stripBlockSpace(`
+				"because:"
+				"-"
+				"thing"
+				"-"
+				"thing"
+				"-"
+				"and"
+				"another"
+				"thing"
+				"therefore:"
+				"-"
+				"red"
+				"herring"
+				"-"
+				"wild"
+				"leap"
 				`),
 			},
 		} {
