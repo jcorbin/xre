@@ -5,6 +5,40 @@ import (
 	"regexp"
 )
 
+func scanG(s string) (linker, string, error) {
+	var pat *regexp.Regexp
+	var err error
+	pat, s, err = scanPat(s[0], s[1:])
+	if err != nil {
+		return nil, s, err
+	}
+	g := gLinker(pat)
+	return g, s, nil
+}
+
+func scanV(s string) (linker, string, error) {
+	var pat *regexp.Regexp
+	var err error
+	pat, s, err = scanPat(s[0], s[1:])
+	if err != nil {
+		return nil, s, err
+	}
+	v := vLinker(pat)
+	return v, s, nil
+}
+
+func gLinker(pat *regexp.Regexp) linker {
+	return func(next command) (command, error) {
+		return filter{pat, next}, nil
+	}
+}
+
+func vLinker(pat *regexp.Regexp) linker {
+	return func(next command) (command, error) {
+		return filterNeg{pat, next}, nil
+	}
+}
+
 type filter struct {
 	pat  *regexp.Regexp
 	next command
@@ -27,27 +61,6 @@ func (fn filterNeg) Process(buf []byte, ateof bool) (off int, err error) {
 		return fn.next.Process(buf, ateof)
 	}
 	return 0, nil
-}
-
-//// parsing
-
-func gLinker(pat *regexp.Regexp, negate bool) (linker, error) {
-	return func(next command) (command, error) {
-		if negate {
-			return filterNeg{pat, next}, nil
-		}
-		return filter{pat, next}, nil
-	}, nil
-}
-
-func scanG(s string) (linker, string, error) { return scanGV(false, s) }
-func scanV(s string) (linker, string, error) { return scanGV(true, s) }
-func scanGV(neg bool, s string) (lnk linker, _ string, _ error) {
-	re, s, err := scanPat(s[0], s[1:])
-	if err == nil {
-		lnk, err = gLinker(re, neg)
-	}
-	return lnk, s, err
 }
 
 func (fl filter) String() string {
