@@ -2,6 +2,27 @@ package main
 
 import "bytes"
 
+func trimmedSplitter(sp splitter, cutset string) splitter {
+	switch impl := sp.(type) {
+	case lineSplitter:
+		// TODO would do better to leverage a generic one around lineSpliter,
+		// or even just ignore if cutset is just \r and/or \n
+		if impl == 1 {
+			return byteSplitTrimmer{'\n', cutset}
+		}
+		return bytesSplitTrimmer{bytes.Repeat([]byte{'\n'}, int(impl)), cutset}
+
+	case byteSplitter:
+		return byteSplitTrimmer{byte(impl), cutset}
+
+	case bytesSplitter:
+		return bytesSplitTrimmer{impl, cutset}
+
+	default:
+		panic("generic split trimming not implemented")
+	}
+}
+
 type lineSplitter int
 type byteSplitter byte
 type bytesSplitter []byte

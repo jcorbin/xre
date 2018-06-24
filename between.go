@@ -125,19 +125,18 @@ func yDelimLinker(delim, cutset string) (linker, error) {
 		if len(delim) == 0 {
 			return nil, errors.New("empty y\"delimiter\"")
 		}
+		bds := betweenDelimSplit{next: next}
 		if allNewlines(delim) {
-			return betweenDelimSplit{lineSplitter(len(delim)), next}, nil
+			bds.split = lineSplitter(len(delim))
+		} else if len(delim) == 1 {
+			bds.split = byteSplitter(delim[0])
+		} else {
+			bds.split = bytesSplitter(delim)
 		}
 		if cutset != "" {
-			if len(delim) == 1 {
-				return betweenDelimSplit{byteSplitTrimmer{delim[0], cutset}, next}, nil
-			}
-			return betweenDelimSplit{bytesSplitTrimmer{[]byte(delim), cutset}, next}, nil
+			bds.split = trimmedSplitter(bds.split, cutset)
 		}
-		if len(delim) == 1 {
-			return betweenDelimSplit{byteSplitter(delim[0]), next}, nil
-		}
-		return betweenDelimSplit{bytesSplitter(delim), next}, nil
+		return bds, nil
 	}, nil
 }
 
