@@ -7,6 +7,87 @@ import (
 	"io"
 )
 
+func scanP(s string) (linker, string, error) {
+	var p linker
+	if len(s) == 0 {
+		p = pLinker("", "")
+		return p, s, nil
+	}
+	switch c := s[0]; c {
+
+	case '%':
+		if len(s) < 3 || s[1] != '"' {
+			return nil, s, errors.New("missing format string to p%")
+		}
+		var format string
+		var err error
+		format, s, err = scanString(s[1], s[2:])
+		if err != nil {
+			return nil, s, err
+		}
+		p = pLinker(format, "")
+
+	case '"':
+		var delim string
+		var err error
+		delim, s, err = scanString(s[0], s[1:])
+		if err != nil {
+			return nil, s, err
+		}
+		p = pLinker("", delim)
+
+	default:
+		return nil, s, fmt.Errorf("unrecognized p command")
+	}
+	return p, s, nil
+}
+
+func pLinker(format, sdelim string) linker {
+	if format == "" && sdelim == "" {
+		return func(next command) (command, error) {
+			return next, nil
+		}
+	}
+
+	// have either format or delim
+	var delim []byte
+	if sdelim != "" {
+		if format != "" {
+			format += sdelim
+		} else {
+			delim = []byte(sdelim)
+		}
+	}
+
+	return func(next command) (command, error) {
+		switch nc := next.(type) {
+		case writer:
+			if format != "" {
+				return fmtWriter{fmt: format, w: nc.w}, nil
+			}
+			return delimWriter{delim: delim, w: nc.w}, nil
+
+		case fmtWriter:
+			if format != "" {
+				return fmtWriter{fmt: format + nc.fmt, w: nc.w}, nil
+			}
+			return delimWriter{delim: delim, w: nc.w}, nil
+
+		case delimWriter:
+			if format != "" {
+				return fmtWriter{fmt: format + string(nc.delim), w: nc.w}, nil
+			}
+			return delimWriter{delim: append(delim, nc.delim...), w: nc.w}, nil
+
+		default:
+			if format != "" {
+				return &fmter{fmt: format, next: next}, nil
+			}
+			return &delimer{delim: delim, next: next}, nil
+		}
+	}
+}
+
 type fmter struct {
 	fmt  string
 	tmp  bytes.Buffer
@@ -71,76 +152,6 @@ func (dw delimWriter) Process(buf []byte, ateof bool) (off int, err error) {
 		_, err = dw.w.Write(dw.delim)
 	}
 	return len(buf), err
-}
-
-//// parsing
-
-func pLinker(format string, delim []byte) (linker, error) {
-	return func(next command) (command, error) {
-		if format != "" && delim != nil {
-			format, delim = fmt.Sprintf("%s%s", format, delim), nil
-		}
-		if format == "" && len(delim) == 0 {
-			return next, nil
-		}
-		// from here on we have either have format or delim
-
-		switch nc := next.(type) {
-		case writer:
-			if format != "" {
-				return fmtWriter{fmt: format, w: nc.w}, nil
-			}
-			return delimWriter{delim: delim, w: nc.w}, nil
-
-		case fmtWriter:
-			if format != "" {
-				return fmtWriter{fmt: format + nc.fmt, w: nc.w}, nil
-			}
-			return delimWriter{delim: delim, w: nc.w}, nil
-
-		case delimWriter:
-			if format != "" {
-				return fmtWriter{fmt: format + string(nc.delim), w: nc.w}, nil
-			}
-			return delimWriter{delim: append(delim, nc.delim...), w: nc.w}, nil
-
-		default:
-			if format != "" {
-				return &fmter{fmt: format, next: next}, nil
-			}
-			return &delimer{delim: delim, next: next}, nil
-		}
-	}, nil
-}
-
-func scanP(s string) (lnk linker, _ string, err error) {
-	var c byte
-	if len(s) > 0 {
-		c = s[0]
-	}
-	switch c {
-
-	case '%':
-		if len(s) < 3 || s[1] != '"' {
-			return nil, s, errors.New("missing format string to p%")
-		}
-		var format string
-		format, s, err = scanString(s[1], s[2:])
-		if err == nil {
-			lnk, err = pLinker(format, nil)
-		}
-
-	case '"':
-		var tmp string
-		tmp, s, err = scanString(s[0], s[1:])
-		if err == nil {
-			lnk, err = pLinker("", []byte(tmp))
-		}
-
-	default:
-		lnk, err = pLinker("", nil)
-	}
-	return lnk, s, err
 }
 
 func (fr fmter) String() string       { return fmt.Sprintf("p%%%q%v", fr.fmt, fr.next) }
