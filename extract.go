@@ -5,12 +5,12 @@ import (
 	"regexp"
 )
 
-type extract struct {
+type extractRe struct {
 	pat  *regexp.Regexp
 	next command
 }
 
-type extractSub struct {
+type extractReSub struct {
 	pat  *regexp.Regexp
 	next command
 }
@@ -25,33 +25,33 @@ type extractBalancedInc struct {
 	next        command
 }
 
-func (ex extract) Process(buf []byte, ateof bool) (off int, err error) {
+func (er extractRe) Process(buf []byte, ateof bool) (off int, err error) {
 	for err == nil && off < len(buf) {
-		loc := ex.pat.FindIndex(buf[off:])
+		loc := er.pat.FindIndex(buf[off:])
 		if loc == nil {
 			break
 		}
 		m := buf[off+loc[0] : off+loc[1]] // extracted match
 		if off += loc[1]; off < len(buf) {
-			_, err = ex.next.Process(m, false)
+			_, err = er.next.Process(m, false)
 		} else {
-			_, err = ex.next.Process(m, ateof)
+			_, err = er.next.Process(m, ateof)
 		}
 	}
 	return off, err
 }
 
-func (ex extractSub) Process(buf []byte, ateof bool) (off int, err error) {
+func (ers extractReSub) Process(buf []byte, ateof bool) (off int, err error) {
 	for err == nil && off < len(buf) {
-		locs := ex.pat.FindSubmatchIndex(buf[off:])
+		locs := ers.pat.FindSubmatchIndex(buf[off:])
 		if locs == nil {
 			break
 		}
 		m := buf[off+locs[2] : off+locs[3]] // extracted match
 		if off += locs[1]; off < len(buf) {
-			_, err = ex.next.Process(m, false)
+			_, err = ers.next.Process(m, false)
 		} else {
-			_, err = ex.next.Process(m, ateof)
+			_, err = ers.next.Process(m, ateof)
 		}
 	}
 	return off, err
@@ -80,23 +80,23 @@ func (eb extractBalanced) Process(buf []byte, ateof bool) (off int, err error) {
 	return off, err
 }
 
-func (eb extractBalancedInc) Process(buf []byte, ateof bool) (off int, err error) {
+func (ebi extractBalancedInc) Process(buf []byte, ateof bool) (off int, err error) {
 	// TODO escaping? quoting?
 	level, start := 0, 0
 	for ; err == nil && off < len(buf); off++ {
 		switch buf[off] {
-		case eb.open:
+		case ebi.open:
 			if level == 0 {
 				start = off
 			}
 			level++
-		case eb.close:
+		case ebi.close:
 			level--
 			if level < 0 {
 				level = 0
 			} else if level == 0 {
 				m := buf[start : off+1] // extracted match
-				_, err = eb.next.Process(m, false)
+				_, err = ebi.next.Process(m, false)
 			}
 		}
 	}
@@ -109,10 +109,10 @@ func xReLinker(pat *regexp.Regexp) (linker, error) {
 	return func(next command) (command, error) {
 		switch n := pat.NumSubexp(); n {
 		case 0:
-			return extract{pat, next}, nil
+			return extractRe{pat, next}, nil
 
 		case 1:
-			return extractSub{pat, next}, nil
+			return extractReSub{pat, next}, nil
 
 		default:
 			return nil, fmt.Errorf("extraction with %v sub-patterns not supported", n)
@@ -153,15 +153,15 @@ func scanX(s string) (lnk linker, _ string, err error) {
 	return lnk, s, err
 }
 
-func (ex extract) String() string {
-	return fmt.Sprintf("x/%v/%v", regexpString(ex.pat), ex.next)
+func (er extractRe) String() string {
+	return fmt.Sprintf("x/%v/%v", regexpString(er.pat), er.next)
 }
-func (ex extractSub) String() string {
-	return fmt.Sprintf("x/%v/%v", regexpString(ex.pat), ex.next)
+func (ers extractReSub) String() string {
+	return fmt.Sprintf("x/%v/%v", regexpString(ers.pat), ers.next)
 }
-func (ex extractBalanced) String() string {
-	return fmt.Sprintf("x%s%v", string(ex.open), ex.next)
+func (eb extractBalanced) String() string {
+	return fmt.Sprintf("x%s%v", string(eb.open), eb.next)
 }
-func (ex extractBalancedInc) String() string {
-	return fmt.Sprintf("x%s%s%v", string(ex.open), string(ex.close), ex.next)
+func (ebi extractBalancedInc) String() string {
+	return fmt.Sprintf("x%s%s%v", string(ebi.open), string(ebi.close), ebi.next)
 }
