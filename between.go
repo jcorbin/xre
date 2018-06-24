@@ -10,6 +10,96 @@ import (
 
 var errTooManyEmpties = errors.New("too many empty tokens without progressing")
 
+var balancedOpens = map[byte]byte{
+	'[': ']',
+	'{': '}',
+	'(': ')',
+	'<': '>',
+}
+
+func scanY(s string) (linker, string, error) {
+	if len(s) == 0 {
+		// TODO could default to line-delimiting (aka as if y"\n" was given)
+		return nil, s, fmt.Errorf("empty y command")
+	}
+	var y linker
+	switch c := s[0]; c {
+
+	case '[', '{', '(', '<':
+		s = s[1:]
+		y = yBalLinker(c, balancedOpens[c])
+
+	case '/':
+		var start, end *regexp.Regexp
+		var err error
+		start, s, err = scanPat(c, s[1:])
+		if err != nil {
+			return nil, s, err
+		}
+		if len(s) > 0 {
+			end, s, err = scanPat(c, s)
+			if err != nil {
+				return nil, s, err
+			}
+		}
+		y = yReLinker(start, end)
+
+	case '"':
+		var delim, cutset string
+		var err error
+		delim, s, err = scanString(c, s[1:])
+		if err != nil {
+			return nil, s, err
+		}
+		if len(s) > 3 && s[0] == '~' && s[1] == '"' {
+			cutset, s, err = scanString(c, s[1:])
+			if err != nil {
+				return nil, s, err
+			}
+		}
+		y = yDelimLinker(delim, cutset)
+
+	default:
+		return nil, s, fmt.Errorf("unrecognized y command")
+	}
+	return y, s, nil
+}
+
+func yBalLinker(start, end byte) linker {
+	return func(next command) (command, error) {
+		return betweenBalanced{start, end, next}, nil
+	}
+}
+
+func yReLinker(start, end *regexp.Regexp) linker {
+	return func(next command) (command, error) {
+		if end != nil {
+			return betweenRe{start, end, next}, nil
+		}
+		return betweenDelimRe{start, next}, nil
+	}
+}
+
+func yDelimLinker(delim, cutset string) linker {
+	return func(next command) (command, error) {
+		if len(delim) == 0 {
+			return nil, errors.New("empty y\"delimiter\"")
+		}
+		bds := betweenDelimSplit{next: next}
+		if allNewlines(delim) {
+			bds.split = lineSplitter(len(delim))
+		} else if len(delim) == 1 {
+			bds.split = byteSplitter(delim[0])
+		} else {
+			bds.split = bytesSplitter(delim)
+		}
+		if cutset != "" {
+			bds.split = trimmedSplitter(bds.split, cutset)
+		}
+		return bds, nil
+	}
+}
+
 type betweenBalanced struct {
 	open, close byte
 	next        command
@@ -137,102 +227,6 @@ func (bds betweenDelimSplit) Process(buf []byte, ateof bool) (off int, err error
 	return off, err
 }
 
-//// parsing
-
-func yBalLinker(start, end byte) (linker, error) {
-	return func(next command) (command, error) {
-		return betweenBalanced{start, end, next}, nil
-	}, nil
-}
-
-func yReLinker(start, end *regexp.Regexp) (linker, error) {
-	return func(next command) (command, error) {
-		if end != nil {
-			return betweenRe{start, end, next}, nil
-		}
-		return betweenDelimRe{start, next}, nil
-	}, nil
-}
-
-func yDelimLinker(delim, cutset string) (linker, error) {
-	return func(next command) (command, error) {
-		if len(delim) == 0 {
-			return nil, errors.New("empty y\"delimiter\"")
-		}
-		bds := betweenDelimSplit{next: next}
-		if allNewlines(delim) {
-			bds.split = lineSplitter(len(delim))
-		} else if len(delim) == 1 {
-			bds.split = byteSplitter(delim[0])
-		} else {
-			bds.split = bytesSplitter(delim)
-		}
-		if cutset != "" {
-			bds.split = trimmedSplitter(bds.split, cutset)
-		}
-		return bds, nil
-	}, nil
-}
-
-func allNewlines(delim string) bool {
-	for i := 0; i < len(delim); i++ {
-		if delim[i] != '\n' {
-			return false
-		}
-	}
-	return true
-}
-
-var balancedOpens = map[byte]byte{
-	'[': ']',
-	'{': '}',
-	'(': ')',
-	'<': '>',
-}
-
-func scanY(s string) (lnk linker, _ string, err error) {
-	var c byte
-	if len(s) > 0 {
-		c = s[0]
-	}
-	switch c {
-
-	case '[', '{', '(', '<':
-		s = s[1:]
-		lnk, err = yBalLinker(c, balancedOpens[c])
-
-	case '/':
-		s = s[1:]
-		var pats [2]*regexp.Regexp
-		for i := 0; len(s) > 0 && i < 2; i++ {
-			pats[i], s, err = scanPat(c, s)
-			if err != nil {
-				break
-			}
-		}
-		if err == nil {
-			lnk, err = yReLinker(pats[0], pats[1])
-		}
-
-	case '"':
-		var delim, cutset string
-		delim, s, err = scanString(c, s[1:])
-		if err == nil {
-			if len(s) > 3 && s[0] == '~' && s[1] == '"' {
-				cutset, s, err = scanString(c, s[1:])
-			}
-		}
-		if err == nil {
-			lnk, err = yDelimLinker(delim, cutset)
-		}
-
-	default:
-		// TODO could default to line-delimiting (aka as if y"\n" was given)
-		err = fmt.Errorf("unrecognized y command")
-	}
-	return lnk, s, err
-}
-
 func (bb betweenBalanced) String() string {
 	return fmt.Sprintf("y%s%v", string(bb.open), bb.next)
 }
@@ -251,3 +245,12 @@ func (bs byteSplitter) String() string        { return fmt.Sprintf("%q", string(
 func (bss bytesSplitter) String() string      { return fmt.Sprintf("%q", []byte(bss)) }
 func (bst byteSplitTrimmer) String() string   { return fmt.Sprintf("%q~%q", bst.delim, bst.cutset) }
 func (bsst bytesSplitTrimmer) String() string { return fmt.Sprintf("%q~%q", bsst.delim, bsst.cutset) }
+
+func allNewlines(delim string) bool {
+	for i := 0; i < len(delim); i++ {
+		if delim[i] != '\n' {
+			return false
+		}
+	}
+	return true
+}
