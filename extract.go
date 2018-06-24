@@ -5,6 +5,54 @@ import (
 	"regexp"
 )
 
+func scanX(s string) (linker, string, error) {
+	if len(s) == 0 {
+		return nil, s, fmt.Errorf("empty x command")
+	}
+	var x linker
+	switch c := s[0]; c {
+
+	case '[', '{', '(', '<':
+		var open, close byte
+		s = s[1:]
+		open = c
+		close = balancedOpens[c]
+		x = xBalLinker(open, close)
+
+	case '/':
+		var pat *regexp.Regexp
+		var err error
+		pat, s, err = scanPat(c, s[1:])
+		if err != nil {
+			return nil, s, err
+		}
+		x = xReLinker(pat)
+
+	default:
+		return nil, s, fmt.Errorf("unrecognized x command")
+	}
+	return x, s, nil
+}
+
+func xBalLinker(start, end byte) linker {
+	return func(next command) (command, error) {
+		return extractBalanced{start, end, next}, nil
+	}
+}
+
+func xReLinker(pat *regexp.Regexp) linker {
+	return func(next command) (command, error) {
+		switch n := pat.NumSubexp(); n {
+		case 0:
+			return extractRe{pat, next}, nil
+		case 1:
+			return extractReSub{pat, next}, nil
+		default:
+			return nil, fmt.Errorf("extraction with %v sub-patterns not supported", n)
+		}
+	}
+}
+
 type extractRe struct {
 	pat  *regexp.Regexp
 	next command
@@ -73,53 +121,6 @@ func (eb extractBalanced) Process(buf []byte, ateof bool) (off int, err error) {
 		}
 	}
 	return off, err
-}
-
-//// parsing
-
-func xReLinker(pat *regexp.Regexp) (linker, error) {
-	return func(next command) (command, error) {
-		switch n := pat.NumSubexp(); n {
-		case 0:
-			return extractRe{pat, next}, nil
-
-		case 1:
-			return extractReSub{pat, next}, nil
-
-		default:
-			return nil, fmt.Errorf("extraction with %v sub-patterns not supported", n)
-		}
-	}, nil
-}
-
-func xBalLinker(start, end byte) (linker, error) {
-	return func(next command) (command, error) {
-		return extractBalanced{start, end, next}, nil
-	}, nil
-}
-
-func scanX(s string) (lnk linker, _ string, err error) {
-	var c byte
-	if len(s) > 0 {
-		c = s[0]
-	}
-	switch c {
-
-	case '[', '{', '(', '<':
-		s = s[1:]
-		lnk, err = xBalLinker(c, balancedOpens[c])
-
-	case '/':
-		var re *regexp.Regexp
-		re, s, err = scanPat(c, s[1:])
-		if err == nil {
-			lnk, err = xReLinker(re)
-		}
-
-	default:
-		err = fmt.Errorf("unrecognized x command")
-	}
-	return lnk, s, err
 }
 
 func (er extractRe) String() string {
