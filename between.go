@@ -10,6 +10,11 @@ import (
 
 var errTooManyEmpties = errors.New("too many empty tokens without progressing")
 
+type betweenBalanced struct {
+	open, close byte
+	next        command
+}
+
 type betweenRe struct {
 	start, end *regexp.Regexp
 	next       command
@@ -27,6 +32,29 @@ type betweenDelimSplit struct {
 
 type splitter interface {
 	Split(data []byte, atEOF bool) (advance int, token []byte, err error)
+}
+
+func (bb betweenBalanced) Process(buf []byte, ateof bool) (off int, err error) {
+	// TODO escaping? quoting?
+	level, start := 0, 0
+	for ; err == nil && off < len(buf); off++ {
+		switch buf[off] {
+		case bb.open:
+			if level == 0 {
+				start = off + 1
+			}
+			level++
+		case bb.close:
+			level--
+			if level < 0 {
+				level = 0
+			} else if level == 0 {
+				m := buf[start:off] // extracted match
+				_, err = bb.next.Process(m, false)
+			}
+		}
+	}
+	return off, err
 }
 
 func (by betweenRe) Process(buf []byte, ateof bool) (off int, err error) {
@@ -111,6 +139,12 @@ func (bds betweenDelimSplit) Process(buf []byte, ateof bool) (off int, err error
 
 //// parsing
 
+func yBalLinker(start, end byte) (linker, error) {
+	return func(next command) (command, error) {
+		return betweenBalanced{start, end, next}, nil
+	}, nil
+}
+
 func yReLinker(start, end *regexp.Regexp) (linker, error) {
 	return func(next command) (command, error) {
 		if end != nil {
@@ -165,7 +199,7 @@ func scanY(s string) (lnk linker, _ string, err error) {
 
 	case '[', '{', '(', '<':
 		s = s[1:]
-		lnk, err = xBalLinker(c, balancedOpens[c], false)
+		lnk, err = yBalLinker(c, balancedOpens[c])
 
 	case '/':
 		s = s[1:]
@@ -199,6 +233,9 @@ func scanY(s string) (lnk linker, _ string, err error) {
 	return lnk, s, err
 }
 
+func (bb betweenBalanced) String() string {
+	return fmt.Sprintf("y%s%v", string(bb.open), bb.next)
+}
 func (by betweenRe) String() string {
 	return fmt.Sprintf("y/%v/%v/%v", regexpString(by.start), regexpString(by.end), by.next)
 }

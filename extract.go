@@ -20,11 +20,6 @@ type extractBalanced struct {
 	next        command
 }
 
-type extractBalancedInc struct {
-	open, close byte
-	next        command
-}
-
 func (er extractRe) Process(buf []byte, ateof bool) (off int, err error) {
 	for err == nil && off < len(buf) {
 		loc := er.pat.FindIndex(buf[off:])
@@ -64,7 +59,7 @@ func (eb extractBalanced) Process(buf []byte, ateof bool) (off int, err error) {
 		switch buf[off] {
 		case eb.open:
 			if level == 0 {
-				start = off + 1
+				start = off
 			}
 			level++
 		case eb.close:
@@ -72,31 +67,8 @@ func (eb extractBalanced) Process(buf []byte, ateof bool) (off int, err error) {
 			if level < 0 {
 				level = 0
 			} else if level == 0 {
-				m := buf[start:off] // extracted match
-				_, err = eb.next.Process(m, false)
-			}
-		}
-	}
-	return off, err
-}
-
-func (ebi extractBalancedInc) Process(buf []byte, ateof bool) (off int, err error) {
-	// TODO escaping? quoting?
-	level, start := 0, 0
-	for ; err == nil && off < len(buf); off++ {
-		switch buf[off] {
-		case ebi.open:
-			if level == 0 {
-				start = off
-			}
-			level++
-		case ebi.close:
-			level--
-			if level < 0 {
-				level = 0
-			} else if level == 0 {
 				m := buf[start : off+1] // extracted match
-				_, err = ebi.next.Process(m, false)
+				_, err = eb.next.Process(m, false)
 			}
 		}
 	}
@@ -120,11 +92,8 @@ func xReLinker(pat *regexp.Regexp) (linker, error) {
 	}, nil
 }
 
-func xBalLinker(start, end byte, inc bool) (linker, error) {
+func xBalLinker(start, end byte) (linker, error) {
 	return func(next command) (command, error) {
-		if inc {
-			return extractBalancedInc{start, end, next}, nil
-		}
 		return extractBalanced{start, end, next}, nil
 	}, nil
 }
@@ -138,7 +107,7 @@ func scanX(s string) (lnk linker, _ string, err error) {
 
 	case '[', '{', '(', '<':
 		s = s[1:]
-		lnk, err = xBalLinker(c, balancedOpens[c], true)
+		lnk, err = xBalLinker(c, balancedOpens[c])
 
 	case '/':
 		var re *regexp.Regexp
@@ -160,8 +129,5 @@ func (ers extractReSub) String() string {
 	return fmt.Sprintf("x/%v/%v", regexpString(ers.pat), ers.next)
 }
 func (eb extractBalanced) String() string {
-	return fmt.Sprintf("x%s%v", string(eb.open), eb.next)
-}
-func (ebi extractBalancedInc) String() string {
-	return fmt.Sprintf("x%s%s%v", string(ebi.open), string(ebi.close), ebi.next)
+	return fmt.Sprintf("x%s%s%v", string(eb.open), string(eb.close), eb.next)
 }
