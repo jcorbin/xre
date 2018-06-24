@@ -10,7 +10,7 @@ import (
 
 var errTooManyEmpties = errors.New("too many empty tokens without progressing")
 
-type between struct {
+type betweenRe struct {
 	start, end *regexp.Regexp
 	next       command
 }
@@ -29,7 +29,7 @@ type splitter interface {
 	Split(data []byte, atEOF bool) (advance int, token []byte, err error)
 }
 
-func (by between) Process(buf []byte, ateof bool) (off int, err error) {
+func (by betweenRe) Process(buf []byte, ateof bool) (off int, err error) {
 	// TODO inclusive variant?
 	for err == nil && off < len(buf) {
 		// find start pattern
@@ -73,13 +73,13 @@ func (bd betweenDelimRe) Process(buf []byte, ateof bool) (off int, err error) {
 	return off, err
 }
 
-func (bd betweenDelimSplit) Process(buf []byte, ateof bool) (off int, err error) {
+func (bds betweenDelimSplit) Process(buf []byte, ateof bool) (off int, err error) {
 	const maxConsecutiveEmptyReads = 100
 	empties := 0
 	for err == nil && off < len(buf) {
 		var advance int
 		var token []byte
-		if advance, token, err = bd.split.Split(buf[off:], ateof); advance < 0 {
+		if advance, token, err = bds.split.Split(buf[off:], ateof); advance < 0 {
 			if err == nil {
 				err = bufio.ErrNegativeAdvance
 			}
@@ -92,7 +92,7 @@ func (bd betweenDelimSplit) Process(buf []byte, ateof bool) (off int, err error)
 		}
 		if err != nil || token == nil {
 			if err == bufio.ErrFinalToken {
-				_, err = bd.next.Process(token, true)
+				_, err = bds.next.Process(token, true)
 			}
 			break
 		}
@@ -104,7 +104,7 @@ func (bd betweenDelimSplit) Process(buf []byte, ateof bool) (off int, err error)
 				return off, errTooManyEmpties
 			}
 		}
-		_, err = bd.next.Process(token, true)
+		_, err = bds.next.Process(token, true)
 	}
 	return off, err
 }
@@ -114,7 +114,7 @@ func (bd betweenDelimSplit) Process(buf []byte, ateof bool) (off int, err error)
 func yReLinker(start, end *regexp.Regexp) (linker, error) {
 	return func(next command) (command, error) {
 		if end != nil {
-			return between{start, end, next}, nil
+			return betweenRe{start, end, next}, nil
 		}
 		return betweenDelimRe{start, next}, nil
 	}, nil
@@ -199,14 +199,14 @@ func scanY(s string) (lnk linker, _ string, err error) {
 	return lnk, s, err
 }
 
-func (by between) String() string {
+func (by betweenRe) String() string {
 	return fmt.Sprintf("y/%v/%v/%v", regexpString(by.start), regexpString(by.end), by.next)
 }
 func (bd betweenDelimRe) String() string {
 	return fmt.Sprintf("y/%v/%v", regexpString(bd.pat), bd.next)
 }
-func (bd betweenDelimSplit) String() string {
-	return fmt.Sprintf("y%v%v", bd.split, bd.next)
+func (bds betweenDelimSplit) String() string {
+	return fmt.Sprintf("y%v%v", bds.split, bds.next)
 }
 
 func (ls lineSplitter) String() string        { return fmt.Sprintf("%q", strings.Repeat(`\n`, int(ls))) }
