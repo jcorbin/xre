@@ -7,10 +7,9 @@ import (
 	"io"
 )
 
-func scanP(s string) (linker, string, error) {
-	var p linker
+func scanP(s string) (command, string, error) {
+	var p print
 	if len(s) == 0 {
-		p = pLinker("", "")
 		return p, s, nil
 	}
 	switch c := s[0]; c {
@@ -19,22 +18,18 @@ func scanP(s string) (linker, string, error) {
 		if len(s) < 3 || s[1] != '"' {
 			return nil, s, errors.New("missing format string to p%")
 		}
-		var format string
 		var err error
-		format, s, err = scanString(s[1], s[2:])
+		p.fmt, s, err = scanString(s[1], s[2:])
 		if err != nil {
 			return nil, s, err
 		}
-		p = pLinker(format, "")
 
 	case '"':
-		var delim string
 		var err error
-		delim, s, err = scanString(s[0], s[1:])
+		p.delim, s, err = scanString(s[0], s[1:])
 		if err != nil {
 			return nil, s, err
 		}
-		p = pLinker("", delim)
 
 	default:
 		return nil, s, fmt.Errorf("unrecognized p command")
@@ -42,62 +37,68 @@ func scanP(s string) (linker, string, error) {
 	return p, s, nil
 }
 
-func pLinker(format, sdelim string) linker {
-	if format == "" && sdelim == "" {
-		return func(next command) (command, error) {
-			return next, nil
-		}
+type print struct {
+	fmt, delim string
+	// TODO destination control
+}
+
+func (p print) Create(nc command, env environment) (processor, error) {
+	next, err := create(nc, env)
+	if err != nil {
+		return nil, err
 	}
 
-	// have either format or delim
+	if p.fmt == "" && p.delim == "" {
+		return next, nil
+	}
+
+	// have either p.fmt or delim
 	var delim []byte
-	if sdelim != "" {
-		if format != "" {
-			format += sdelim
+	if p.delim != "" {
+		if p.fmt != "" {
+			p.fmt += p.delim
 		} else {
-			delim = []byte(sdelim)
+			delim = []byte(p.delim)
 		}
 	}
 
-	return func(next command) (command, error) {
-		switch nc := next.(type) {
-		case writer:
-			if format != "" {
-				return fmtWriter{fmt: format, w: nc.w}, nil
-			}
-			return delimWriter{delim: delim, w: nc.w}, nil
-
-		case fmtWriter:
-			if format != "" {
-				return fmtWriter{fmt: format + nc.fmt, w: nc.w}, nil
-			}
-			return delimWriter{delim: delim, w: nc.w}, nil
-
-		case delimWriter:
-			if format != "" {
-				return fmtWriter{fmt: format + string(nc.delim), w: nc.w}, nil
-			}
-			return delimWriter{delim: append(delim, nc.delim...), w: nc.w}, nil
-
-		default:
-			if format != "" {
-				return &fmter{fmt: format, next: next}, nil
-			}
-			return &delimer{delim: delim, next: next}, nil
+	switch impl := next.(type) {
+	case writer:
+		if p.fmt != "" {
+			return fmtWriter{fmt: p.fmt, w: impl.w}, nil
 		}
+		return delimWriter{delim: delim, w: impl.w}, nil
+
+	case fmtWriter:
+		if p.fmt != "" {
+			return fmtWriter{fmt: p.fmt + impl.fmt, w: impl.w}, nil
+		}
+		return delimWriter{delim: delim, w: impl.w}, nil
+
+	case delimWriter:
+		if p.fmt != "" {
+			return fmtWriter{fmt: p.fmt + string(impl.delim), w: impl.w}, nil
+		}
+		return delimWriter{delim: append(delim, impl.delim...), w: impl.w}, nil
+
+	default:
+		if p.fmt != "" {
+			return &fmter{fmt: p.fmt, next: next}, nil
+		}
+		return &delimer{delim: delim, next: next}, nil
 	}
 }
 
 type fmter struct {
 	fmt  string
 	tmp  bytes.Buffer
-	next command
+	next processor
 }
 
 type delimer struct {
 	delim []byte
 	tmp   bytes.Buffer
-	next  command
+	next  processor
 }
 
 type writer struct {

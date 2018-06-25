@@ -13,8 +13,7 @@ import (
 
 var errNoSep = errors.New("missing separator")
 
-type scanner func(string) (linker, string, error)
-type linker func(command) (command, error)
+type scanner func(string) (command, string, error)
 
 var commands = map[byte]scanner{
 	'x': scanX,
@@ -24,23 +23,19 @@ var commands = map[byte]scanner{
 	'p': scanP,
 }
 
-func parseCommand(s string, w io.Writer) (command, error) {
-	lnks, err := scanCommand(s)
+func parseCommand(s string) (command, error) {
+	cmd, s, err := scanCommand(s)
 	if err != nil {
 		return nil, err
 	}
-	var cmd command = writer{w}
-	for i := len(lnks) - 1; i >= 0; i-- {
-		cmd, err = lnks[i](cmd)
-		if err != nil {
-			return nil, err
-		}
+	if s != "" {
+		return nil, fmt.Errorf("extraneous input %q after command", s)
 	}
 	return cmd, nil
 }
 
-// NOTE not actually a "scanner" due to needing to de-confuse the `type scanner` as noted above.
-func scanCommand(s string) (lnks []linker, err error) {
+func scanCommand(s string) (command, string, error) {
+	cmd := chain(nil, nil)
 	for len(s) > 0 {
 		switch s[0] {
 		case ' ', '\t', '\r', '\n':
@@ -50,17 +45,17 @@ func scanCommand(s string) (lnks []linker, err error) {
 			// case '{', '}': // TODO grouping support
 
 		default:
-			lnk, cont, err := scanCommandAtom(s)
+			nextCmd, cont, err := scanCommandAtom(s)
 			if err != nil {
-				return lnks, err
+				return cmd, s, err
 			}
-			s, lnks = cont, append(lnks, lnk)
+			s, cmd = cont, chain(cmd, nextCmd)
 		}
 	}
-	return lnks, nil
+	return cmd, s, nil
 }
 
-func scanCommandAtom(s string) (lnk linker, _ string, err error) {
+func scanCommandAtom(s string) (command, string, error) {
 	if s == "" {
 		return nil, s, errors.New("missing command at end of input")
 	}
@@ -71,17 +66,25 @@ func scanCommandAtom(s string) (lnk linker, _ string, err error) {
 	return scan(s[1:])
 }
 
-func runCommand(cmd command, r io.Reader, useMmap bool) error {
+func runCommand(cmd command, r io.Reader, env environment, useMmap bool) error {
+	proc, err := create(cmd, env)
+	if err == nil {
+		err = runProcessor(proc, r, useMmap)
+	}
+	return err
+}
+
+func runProcessor(proc processor, r io.Reader, useMmap bool) error {
 	if f, canMmap := r.(filelike); useMmap && canMmap {
 		buf, fin, err := mmap(f)
 		if err == nil {
 			defer fin()
-			_, err = cmd.Process(buf, true)
+			_, err = proc.Process(buf, true)
 		}
 		return err
 	}
 
-	if rf, canReadFrom := cmd.(io.ReaderFrom); canReadFrom {
+	if rf, canReadFrom := proc.(io.ReaderFrom); canReadFrom {
 		_, err := rf.ReadFrom(r)
 		return err
 	}
@@ -89,11 +92,59 @@ func runCommand(cmd command, r io.Reader, useMmap bool) error {
 	// TODO if (some) commands implement io.Writer, then could upgrade to r.(WriterTo)
 
 	rb := readBuf{buf: make([]byte, 0, minRead)} // TODO configurable buffer size
-	return rb.Process(cmd, r)
+	return rb.Process(proc, r)
 }
 
 type command interface {
+	Create(command, environment) (processor, error)
+}
+
+type processor interface {
 	Process(buf []byte, ateof bool) (off int, err error)
+}
+
+type commandChain []command
+
+func chain(a, b command) command {
+	if a == nil && b == nil {
+		return commandChain(nil)
+	} else if a == nil {
+		return b
+	} else if b == nil {
+		return a
+	}
+
+	as, isAChain := a.(commandChain)
+	bs, isBChain := b.(commandChain)
+	if isAChain && isBChain {
+		if len(as) == 0 {
+			return bs
+		}
+		return append(as, bs...)
+	} else if isAChain {
+		return append(as, b)
+	} else if isBChain {
+		bs = append(bs, nil)
+		copy(bs[1:], bs)
+		bs[0] = a
+	}
+
+	return commandChain{a, b}
+}
+
+func (cc commandChain) Create(nc command, env environment) (processor, error) {
+	if len(cc) == 0 {
+		return create(nc, env)
+	}
+	head := cc[0]
+	tail := cc[:copy(cc, cc[1:])]
+	if nc != nil {
+		tail = append(tail, nc)
+	}
+	if len(tail) == 0 {
+		tail = nil
+	}
+	return head.Create(tail, env)
 }
 
 func scanDelim(sep byte, r string) (part, rest string, err error) {

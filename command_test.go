@@ -13,14 +13,18 @@ type testEnv struct {
 	buf bytes.Buffer
 }
 
+func (te *testEnv) Default() processor {
+	return writer{&te.buf}
+}
+
 func (te *testEnv) runTest(t *testing.T, cmdStr string, in, expected []byte) {
-	cmd, err := parseCommand(cmdStr, &te.buf)
+	cmd, err := parseCommand(cmdStr)
 	if !assert.NoError(t, err, "couldn't parse command %q", cmdStr) {
 		return
 	}
 	te.buf.Reset()
 	r := bytes.NewReader(in)
-	if !assert.NoError(t, runCommand(cmd, r, false), "unexpected command error") {
+	if !assert.NoError(t, runCommand(cmd, r, te, false), "command failed") {
 		return
 	}
 	assert.Equal(t, expected, te.buf.Bytes(), "expected command output")

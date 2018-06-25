@@ -1,52 +1,63 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 )
 
-func scanG(s string) (linker, string, error) {
-	var pat *regexp.Regexp
+func scanG(s string) (command, string, error) {
+	var g gcommand
 	var err error
-	pat, s, err = scanPat(s[0], s[1:])
+	g.pat, s, err = scanPat(s[0], s[1:])
 	if err != nil {
 		return nil, s, err
 	}
-	g := gLinker(pat)
 	return g, s, nil
 }
 
-func scanV(s string) (linker, string, error) {
-	var pat *regexp.Regexp
+func scanV(s string) (command, string, error) {
+	v := gcommand{negate: true}
 	var err error
-	pat, s, err = scanPat(s[0], s[1:])
+	v.pat, s, err = scanPat(s[0], s[1:])
 	if err != nil {
 		return nil, s, err
 	}
-	v := vLinker(pat)
 	return v, s, nil
 }
 
-func gLinker(pat *regexp.Regexp) linker {
-	return func(next command) (command, error) {
-		return filter{pat, next}, nil
-	}
+type gcommand struct {
+	negate bool
+	pat    *regexp.Regexp
 }
 
-func vLinker(pat *regexp.Regexp) linker {
-	return func(next command) (command, error) {
-		return filterNeg{pat, next}, nil
+func (g gcommand) Create(nc command, env environment) (processor, error) {
+	if g.pat == nil {
+		if g.negate {
+			return nil, errors.New("empty v command")
+		}
+		return nil, errors.New("empty g command")
 	}
+
+	next, err := create(nc, env)
+	if err != nil {
+		return nil, err
+	}
+
+	if g.negate {
+		return filterNeg{g.pat, next}, nil
+	}
+	return filter{g.pat, next}, nil
 }
 
 type filter struct {
 	pat  *regexp.Regexp
-	next command
+	next processor
 }
 
 type filterNeg struct {
 	pat  *regexp.Regexp
-	next command
+	next processor
 }
 
 func (fl filter) Process(buf []byte, ateof bool) (off int, err error) {

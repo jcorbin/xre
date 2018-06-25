@@ -3,10 +3,8 @@
 package main
 
 import (
-	"bufio"
 	"errors"
 	"flag"
-	"io"
 	"log"
 	"os"
 )
@@ -17,6 +15,10 @@ func main() {
 	}
 }
 
+var mainEnv = fileEnv{
+	deff: os.Stdout, // TODO support redirection
+}
+
 func run() error {
 	useMmap := false
 	flag.BoolVar(&useMmap, "mmap", false, "force using mmap mode rather than streaming")
@@ -25,15 +27,12 @@ func run() error {
 
 	// TODO SIGPIPE handler
 
-	var w io.Writer = os.Stdout // TODO support redirection
-	w = bufio.NewWriter(w)      // TODO buffering control
-
 	args := flag.Args()
 	if len(args) == 0 {
 		// TODO default to just print? (i.e. degenerate to cat?)
 		return errors.New("no command(s) given")
 	}
-	cmd, err := parseCommand(args[0], w)
+	cmd, err := parseCommand(args[0])
 	if err != nil {
 		return err
 	}
@@ -44,6 +43,6 @@ func run() error {
 	}
 
 	return withProf(func() error {
-		return runCommand(cmd, os.Stdin, useMmap)
+		return runCommand(cmd, os.Stdin, &mainEnv, useMmap)
 	})
 }

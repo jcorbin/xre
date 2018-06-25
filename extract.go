@@ -1,32 +1,29 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 )
 
-func scanX(s string) (linker, string, error) {
+func scanX(s string) (command, string, error) {
 	if len(s) == 0 {
 		return nil, s, fmt.Errorf("empty x command")
 	}
-	var x linker
+	var x extract
 	switch c := s[0]; c {
 
 	case '[', '{', '(', '<':
-		var open, close byte
 		s = s[1:]
-		open = c
-		close = balancedOpens[c]
-		x = xBalLinker(open, close)
+		x.open = c
+		x.close = balancedOpens[c]
 
 	case '/':
-		var pat *regexp.Regexp
 		var err error
-		pat, s, err = scanPat(c, s[1:])
+		x.pat, s, err = scanPat(c, s[1:])
 		if err != nil {
 			return nil, s, err
 		}
-		x = xReLinker(pat)
 
 	default:
 		return nil, s, fmt.Errorf("unrecognized x command")
@@ -34,38 +31,50 @@ func scanX(s string) (linker, string, error) {
 	return x, s, nil
 }
 
-func xBalLinker(start, end byte) linker {
-	return func(next command) (command, error) {
-		return extractBalanced{start, end, next}, nil
+type extract struct {
+	pat         *regexp.Regexp
+	open, close byte
+}
+
+func (x extract) Create(nc command, env environment) (processor, error) {
+	if x.open == 0 && x.pat == nil {
+		return nil, errors.New("empty x command")
+	}
+
+	next, err := create(nc, env)
+	if err != nil {
+		return nil, err
+	}
+
+	if x.open != 0 {
+		return extractBalanced{x.open, x.close, next}, nil
+	}
+
+	switch n := x.pat.NumSubexp(); n {
+	case 0:
+		return extractRe{x.pat, next}, nil
+	case 1:
+		return extractReSub{x.pat, next}, nil
+	default:
+		return nil, fmt.Errorf("extraction with %v sub-patterns not supported", n)
 	}
 }
 
-func xReLinker(pat *regexp.Regexp) linker {
-	return func(next command) (command, error) {
-		switch n := pat.NumSubexp(); n {
-		case 0:
-			return extractRe{pat, next}, nil
-		case 1:
-			return extractReSub{pat, next}, nil
-		default:
-			return nil, fmt.Errorf("extraction with %v sub-patterns not supported", n)
-		}
-	}
-}
+// func (x between) String() string TODO needs Create(nil, nil) to work?
 
 type extractRe struct {
 	pat  *regexp.Regexp
-	next command
+	next processor
 }
 
 type extractReSub struct {
 	pat  *regexp.Regexp
-	next command
+	next processor
 }
 
 type extractBalanced struct {
 	open, close byte
-	next        command
+	next        processor
 }
 
 func (er extractRe) Process(buf []byte, ateof bool) (off int, err error) {

@@ -17,48 +17,45 @@ var balancedOpens = map[byte]byte{
 	'<': '>',
 }
 
-func scanY(s string) (linker, string, error) {
+func scanY(s string) (command, string, error) {
 	if len(s) == 0 {
 		// TODO could default to line-delimiting (aka as if y"\n" was given)
 		return nil, s, fmt.Errorf("empty y command")
 	}
-	var y linker
+	var y between
 	switch c := s[0]; c {
 
 	case '[', '{', '(', '<':
 		s = s[1:]
-		y = yBalLinker(c, balancedOpens[c])
+		y.open = c
+		y.close = balancedOpens[c]
 
 	case '/':
 		// TODO disabled y/start/end/ for now due to parsing ambiguity
-		var start, end *regexp.Regexp
 		var err error
-		start, s, err = scanPat(c, s[1:])
+		y.start, s, err = scanPat(c, s[1:])
 		if err != nil {
 			return nil, s, err
 		}
 		// if len(s) > 0 {
-		// 	end, s, err = scanPat(c, s)
+		// 	y.end, s, err = scanPat(c, s)
 		// 	if err != nil {
 		// 		return nil, s, err
 		// 	}
 		// }
-		y = yReLinker(start, end)
 
 	case '"':
-		var delim, cutset string
 		var err error
-		delim, s, err = scanString(c, s[1:])
+		y.delim, s, err = scanString(c, s[1:])
 		if err != nil {
 			return nil, s, err
 		}
 		if len(s) > 3 && s[0] == '~' && s[1] == '"' {
-			cutset, s, err = scanString(c, s[1:])
+			y.cutset, s, err = scanString(c, s[1:])
 			if err != nil {
 				return nil, s, err
 			}
 		}
-		y = yDelimLinker(delim, cutset)
 
 	default:
 		return nil, s, fmt.Errorf("unrecognized y command")
@@ -66,59 +63,68 @@ func scanY(s string) (linker, string, error) {
 	return y, s, nil
 }
 
-func yBalLinker(start, end byte) linker {
-	return func(next command) (command, error) {
-		return betweenBalanced{start, end, next}, nil
-	}
+type between struct {
+	// TODO support and optimize to static start/end byte strings when possible
+	start, end    *regexp.Regexp
+	delim, cutset string
+	open, close   byte
 }
 
-func yReLinker(start, end *regexp.Regexp) linker {
-	return func(next command) (command, error) {
-		if end != nil {
-			return betweenRe{start, end, next}, nil
-		}
-		return betweenDelimRe{start, next}, nil
+func (y between) Create(nc command, env environment) (processor, error) {
+	if y.open == 0 && y.start == nil && y.delim == "" {
+		return nil, errors.New("empty y command")
 	}
+
+	next, err := create(nc, env)
+	if err != nil {
+		return nil, err
+	}
+
+	if y.open != 0 {
+		return betweenBalanced{y.open, y.close, next}, nil
+	}
+
+	if y.start != nil {
+		if y.end != nil {
+			return betweenRe{y.start, y.end, next}, nil
+		}
+		return betweenDelimRe{y.start, next}, nil
+	}
+
+	bds := betweenDelimSplit{next: next}
+	if allNewlines(y.delim) && y.cutset == "" {
+		bds.split = lineSplitter(len(y.delim))
+	} else if len(y.delim) == 1 {
+		bds.split = byteSplitter(y.delim[0])
+	} else {
+		bds.split = bytesSplitter(y.delim)
+	}
+	if y.cutset != "" {
+		bds.split = trimmedSplitter(bds.split, y.cutset)
+	}
+	return bds, nil
 }
 
-func yDelimLinker(delim, cutset string) linker {
-	return func(next command) (command, error) {
-		if len(delim) == 0 {
-			return nil, errors.New("empty y\"delimiter\"")
-		}
-		bds := betweenDelimSplit{next: next}
-		if allNewlines(delim) {
-			bds.split = lineSplitter(len(delim))
-		} else if len(delim) == 1 {
-			bds.split = byteSplitter(delim[0])
-		} else {
-			bds.split = bytesSplitter(delim)
-		}
-		if cutset != "" {
-			bds.split = trimmedSplitter(bds.split, cutset)
-		}
-		return bds, nil
-	}
-}
+// func (y between) String() string TODO needs Create(nil, nil) to work?
 
 type betweenBalanced struct {
 	open, close byte
-	next        command
+	next        processor
 }
 
 type betweenRe struct {
 	start, end *regexp.Regexp
-	next       command
+	next       processor
 }
 
 type betweenDelimRe struct {
 	pat  *regexp.Regexp
-	next command
+	next processor
 }
 
 type betweenDelimSplit struct {
 	split splitter
-	next  command
+	next  processor
 }
 
 type splitter interface {
