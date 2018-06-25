@@ -11,68 +11,13 @@ import (
 	"syscall"
 )
 
-type command interface {
-	Process(buf []byte, ateof bool) (off int, err error)
-}
-
-type filelike interface {
-	Name() string
-	Stat() (os.FileInfo, error)
-	Fd() uintptr
-}
-
-func runCommand(cmd command, r io.Reader, useMmap bool) error {
-	if f, canMmap := r.(filelike); useMmap && canMmap {
-		buf, fin, err := mmap(f)
-		if err == nil {
-			defer fin()
-			_, err = cmd.Process(buf, true)
-		}
-		return err
-	}
-
-	if rf, canReadFrom := cmd.(io.ReaderFrom); canReadFrom {
-		_, err := rf.ReadFrom(r)
-		return err
-	}
-
-	// TODO if (some) commands implement io.Writer, then could upgrade to r.(WriterTo)
-
-	rb := readBuf{buf: make([]byte, 0, minRead)} // TODO configurable buffer size
-	return rb.Process(cmd, r)
-}
-
-func mmap(f filelike) ([]byte, func() error, error) {
-	fi, err := f.Stat()
-	if err != nil {
-		return nil, nil, fmt.Errorf("mmap: cannot stat %q: %v", f.Name(), err)
-	}
-
-	size := fi.Size()
-	if size <= 0 {
-		return nil, nil, fmt.Errorf("mmap: file %q has negative size", f.Name())
-	}
-	if size != int64(int(size)) {
-		return nil, nil, fmt.Errorf("mmap: file %q is too large", f.Name())
-	}
-
-	data, err := syscall.Mmap(int(f.Fd()), 0, int(size), syscall.PROT_READ, syscall.MAP_SHARED)
-	if err != nil {
-		return nil, nil, err
-	}
-	return data, func() error {
-		return syscall.Munmap(data)
-	}, nil
-}
-
-//// parsing
-
 var (
 	errNoCommands = errors.New("no command(s) given")
 	errNoSep      = errors.New("missing separator")
 )
 
-type scanner func(string) (linker, string, error) // TODO consider upgrading to []linker
+type scanner func(string) (linker, string, error)
+type linker func(command) (command, error)
 
 var commands = map[byte]scanner{
 	'x': scanX,
@@ -82,7 +27,22 @@ var commands = map[byte]scanner{
 	'p': scanP,
 }
 
-type linker func(command) (command, error)
+// NOTE not actually a "scanner" due to needing to de-confuse the `type scanner` as noted above.
+func scanCommand(s string) (lnks []linker, err error) {
+	for len(s) > 0 {
+		scan, def := commands[s[0]]
+		if !def {
+			return lnks, fmt.Errorf("unrecognized command %q", s[0])
+		}
+
+		lnk, cont, err := scan(s[1:])
+		if err != nil {
+			return lnks, err
+		}
+		s, lnks = cont, append(lnks, lnk)
+	}
+	return lnks, nil
+}
 
 func compileCommands(args []string, w io.Writer) (cmd command, err error) {
 	// TODO support more complex command pipelines than single straight lines
@@ -117,21 +77,29 @@ func compileCommands(args []string, w io.Writer) (cmd command, err error) {
 	return cmd, nil
 }
 
-// NOTE not actually a "scanner" due to needing to de-confuse the `type scanner` as noted above.
-func scanCommand(s string) (lnks []linker, err error) {
-	for len(s) > 0 {
-		var lnk linker
-		if scan, def := commands[s[0]]; def {
-			lnk, s, err = scan(s[1:])
-		} else {
-			err = fmt.Errorf("unrecognized command %q", s[0])
+func runCommand(cmd command, r io.Reader, useMmap bool) error {
+	if f, canMmap := r.(filelike); useMmap && canMmap {
+		buf, fin, err := mmap(f)
+		if err == nil {
+			defer fin()
+			_, err = cmd.Process(buf, true)
 		}
-		if err != nil {
-			break
-		}
-		lnks = append(lnks, lnk)
+		return err
 	}
-	return lnks, err
+
+	if rf, canReadFrom := cmd.(io.ReaderFrom); canReadFrom {
+		_, err := rf.ReadFrom(r)
+		return err
+	}
+
+	// TODO if (some) commands implement io.Writer, then could upgrade to r.(WriterTo)
+
+	rb := readBuf{buf: make([]byte, 0, minRead)} // TODO configurable buffer size
+	return rb.Process(cmd, r)
+}
+
+type command interface {
+	Process(buf []byte, ateof bool) (off int, err error)
 }
 
 func scanDelim(sep byte, r string) (part, rest string, err error) {
@@ -180,4 +148,33 @@ func regexpString(re *regexp.Regexp) string {
 		s = s[:len(s)-1]
 	}
 	return s
+}
+
+type filelike interface {
+	Name() string
+	Stat() (os.FileInfo, error)
+	Fd() uintptr
+}
+
+func mmap(f filelike) ([]byte, func() error, error) {
+	fi, err := f.Stat()
+	if err != nil {
+		return nil, nil, fmt.Errorf("mmap: cannot stat %q: %v", f.Name(), err)
+	}
+
+	size := fi.Size()
+	if size <= 0 {
+		return nil, nil, fmt.Errorf("mmap: file %q has negative size", f.Name())
+	}
+	if size != int64(int(size)) {
+		return nil, nil, fmt.Errorf("mmap: file %q is too large", f.Name())
+	}
+
+	data, err := syscall.Mmap(int(f.Fd()), 0, int(size), syscall.PROT_READ, syscall.MAP_SHARED)
+	if err != nil {
+		return nil, nil, err
+	}
+	return data, func() error {
+		return syscall.Munmap(data)
+	}, nil
 }
