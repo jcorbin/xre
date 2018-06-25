@@ -7,12 +7,13 @@ import (
 
 func Test_betweenDelim(t *testing.T) {
 	withTestSink(t, func(out command, run func(tc cmdTestCase)) {
+
 		for _, tc := range []cmdTestCase{
 			{
 				name: "line splitting",
 				cmd: betweenDelimSplit{
 					split: lineSplitter(1),
-					next:  out,
+					next:  &fmter{fmt: "%q\n", next: out},
 				},
 				// in: []byte("aee\nbee\tdee\ncee"),
 				in: stripBlockSpace(`
@@ -31,7 +32,7 @@ func Test_betweenDelim(t *testing.T) {
 				name: "paragraph splitting",
 				cmd: betweenDelimSplit{
 					split: lineSplitter(2),
-					next:  out,
+					next:  &fmter{fmt: "%q\n", next: out},
 				},
 				in: stripBlockSpace(`
 				because:
@@ -55,7 +56,7 @@ func Test_betweenDelim(t *testing.T) {
 					split: lineSplitter(2),
 					next: betweenDelimSplit{
 						split: lineSplitter(1),
-						next:  out,
+						next:  &fmter{fmt: "%q\n", next: out},
 					},
 				},
 				in: stripBlockSpace(`
@@ -87,7 +88,7 @@ func Test_betweenDelim(t *testing.T) {
 						split: lineSplitter(1),
 						next: betweenDelimRe{
 							pat:  regexp.MustCompile(`\s+`),
-							next: out,
+							next: &fmter{fmt: "%q\n", next: out},
 						},
 					},
 				},

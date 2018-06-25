@@ -33,8 +33,7 @@ type cmdTestCase struct {
 // string, rather than manually constructed command networks.
 func withTestSink(t *testing.T, f func(out command, run func(tc cmdTestCase))) {
 	var te testEnv
-	out := fmtWriter{fmt: "%q\n"}
-	out.w = &te.buf
+	out := writer{&te.buf}
 	f(&out, func(tc cmdTestCase) {
 		t.Run(tc.name, func(t *testing.T) {
 			te.runTest(t, tc.cmd, tc.in, tc.out)
