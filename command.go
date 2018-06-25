@@ -33,20 +33,27 @@ func scanCommand(s string) (lnks []linker, err error) {
 			continue
 
 			// case '{', '}': // TODO grouping support
-		}
 
-		scan, def := commands[s[0]]
-		if !def {
-			return lnks, fmt.Errorf("unrecognized command %q", s[0])
+		default:
+			lnk, cont, err := scanCommandAtom(s)
+			if err != nil {
+				return lnks, err
+			}
+			s, lnks = cont, append(lnks, lnk)
 		}
-
-		lnk, cont, err := scan(s[1:])
-		if err != nil {
-			return lnks, err
-		}
-		s, lnks = cont, append(lnks, lnk)
 	}
 	return lnks, nil
+}
+
+func scanCommandAtom(s string) (lnk linker, _ string, err error) {
+	if s == "" {
+		return nil, s, errors.New("missing command at end of input")
+	}
+	scan, def := commands[s[0]]
+	if !def {
+		return nil, s, fmt.Errorf("unrecognized command %q", s[0])
+	}
+	return scan(s[1:])
 }
 
 func runCommand(cmd command, r io.Reader, useMmap bool) error {
