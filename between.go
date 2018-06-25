@@ -30,18 +30,19 @@ func scanY(s string) (linker, string, error) {
 		y = yBalLinker(c, balancedOpens[c])
 
 	case '/':
+		// TODO disabled y/start/end/ for now due to parsing ambiguity
 		var start, end *regexp.Regexp
 		var err error
 		start, s, err = scanPat(c, s[1:])
 		if err != nil {
 			return nil, s, err
 		}
-		if len(s) > 0 {
-			end, s, err = scanPat(c, s)
-			if err != nil {
-				return nil, s, err
-			}
-		}
+		// if len(s) > 0 {
+		// 	end, s, err = scanPat(c, s)
+		// 	if err != nil {
+		// 		return nil, s, err
+		// 	}
+		// }
 		y = yReLinker(start, end)
 
 	case '"':
