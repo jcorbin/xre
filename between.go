@@ -31,18 +31,11 @@ func scanY(s string) (command, string, error) {
 		y.close = balancedOpens[c]
 
 	case '/':
-		// TODO disabled y/start/end/ for now due to parsing ambiguity
 		var err error
-		y.start, s, err = scanPat(c, s[1:])
+		y.pat, s, err = scanPat(c, s[1:])
 		if err != nil {
 			return nil, s, err
 		}
-		// if len(s) > 0 {
-		// 	y.end, s, err = scanPat(c, s)
-		// 	if err != nil {
-		// 		return nil, s, err
-		// 	}
-		// }
 
 	case '"':
 		var err error
@@ -65,13 +58,13 @@ func scanY(s string) (command, string, error) {
 
 type between struct {
 	// TODO support and optimize to static start/end byte strings when possible
-	start, end    *regexp.Regexp
+	pat           *regexp.Regexp
 	delim, cutset string
 	open, close   byte
 }
 
 func (y between) Create(nc command, env environment) (processor, error) {
-	if y.open == 0 && y.start == nil && y.delim == "" {
+	if y.open == 0 && y.pat == nil && y.delim == "" {
 		return nil, errors.New("empty y command")
 	}
 
@@ -84,11 +77,8 @@ func (y between) Create(nc command, env environment) (processor, error) {
 		return betweenBalanced{y.open, y.close, next}, nil
 	}
 
-	if y.start != nil {
-		if y.end != nil {
-			return betweenRe{y.start, y.end, next}, nil
-		}
-		return betweenDelimRe{y.start, next}, nil
+	if y.pat != nil {
+		return betweenDelimRe{y.pat, next}, nil
 	}
 
 	bds := betweenDelimSplit{next: next}
@@ -110,11 +100,6 @@ func (y between) Create(nc command, env environment) (processor, error) {
 type betweenBalanced struct {
 	open, close byte
 	next        processor
-}
-
-type betweenRe struct {
-	start, end *regexp.Regexp
-	next       processor
 }
 
 type betweenDelimRe struct {
@@ -150,32 +135,6 @@ func (bb betweenBalanced) Process(buf []byte, ateof bool) (off int, err error) {
 				_, err = bb.next.Process(m, false)
 			}
 		}
-	}
-	return off, err
-}
-
-func (by betweenRe) Process(buf []byte, ateof bool) (off int, err error) {
-	// TODO inclusive variant?
-	for err == nil && off < len(buf) {
-		// find start pattern
-		loc := by.start.FindIndex(buf[off:])
-		if loc == nil {
-			break
-		}
-		if off += loc[1]; off >= len(buf) {
-			break
-		}
-		m := buf[off:] // start extracted match after match of start pattern
-
-		// find end pattern
-		loc = by.end.FindIndex(m)
-		if loc == nil {
-			break
-		}
-		off += loc[1]
-		m = m[:loc[0]] // end extracted match before match of end pattern
-
-		_, err = by.next.Process(m, false)
 	}
 	return off, err
 }
@@ -236,9 +195,6 @@ func (bds betweenDelimSplit) Process(buf []byte, ateof bool) (off int, err error
 
 func (bb betweenBalanced) String() string {
 	return fmt.Sprintf("y%s%v", string(bb.open), bb.next)
-}
-func (by betweenRe) String() string {
-	return fmt.Sprintf("y/%v/%v/%v", regexpString(by.start), regexpString(by.end), by.next)
 }
 func (bd betweenDelimRe) String() string {
 	return fmt.Sprintf("y/%v/%v", regexpString(bd.pat), bd.next)
