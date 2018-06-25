@@ -24,6 +24,21 @@ var commands = map[byte]scanner{
 	'p': scanP,
 }
 
+func parseCommand(s string, w io.Writer) (command, error) {
+	lnks, err := scanCommand(s)
+	if err != nil {
+		return nil, err
+	}
+	var cmd command = writer{w}
+	for i := len(lnks) - 1; i >= 0; i-- {
+		cmd, err = lnks[i](cmd)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return cmd, nil
+}
+
 // NOTE not actually a "scanner" due to needing to de-confuse the `type scanner` as noted above.
 func scanCommand(s string) (lnks []linker, err error) {
 	for len(s) > 0 {

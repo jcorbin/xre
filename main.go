@@ -33,7 +33,7 @@ func run() error {
 		// TODO default to just print? (i.e. degenerate to cat?)
 		return errors.New("no command(s) given")
 	}
-	lnks, err := scanCommand(args[0])
+	cmd, err := parseCommand(args[0], w)
 	if err != nil {
 		return err
 	}
@@ -41,14 +41,6 @@ func run() error {
 
 	if len(args) > 0 {
 		return errors.New("reading input from file argument(s) not implemented") // TODO
-	}
-
-	var cmd command = writer{w}
-	for i := len(lnks) - 1; i >= 0; i-- {
-		cmd, err = lnks[i](cmd)
-		if err != nil {
-			return err
-		}
 	}
 
 	return withProf(func() error {
