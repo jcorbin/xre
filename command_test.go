@@ -9,6 +9,19 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+type testEnv struct {
+	buf bytes.Buffer
+}
+
+func (te *testEnv) runTest(t *testing.T, cmd command, in, expected []byte) {
+	te.buf.Reset()
+	r := bytes.NewReader(in)
+	if !assert.NoError(t, runCommand(cmd, r, false), "unexpected command error") {
+		return
+	}
+	assert.Equal(t, expected, te.buf.Bytes(), "expected command output")
+}
+
 type cmdTestCase struct {
 	name string
 	cmd  command
@@ -19,20 +32,12 @@ type cmdTestCase struct {
 // TODO expand this out to be a more integrative harness that parses a command
 // string, rather than manually constructed command networks.
 func withTestSink(t *testing.T, f func(out command, run func(tc cmdTestCase))) {
-	in := bytes.NewReader(nil)
+	var te testEnv
 	out := fmtWriter{fmt: "%q\n"}
-	var outBuf bytes.Buffer
+	out.w = &te.buf
 	f(&out, func(tc cmdTestCase) {
 		t.Run(tc.name, func(t *testing.T) {
-			in.Reset(tc.in)
-			outBuf.Reset()
-			out.w = &outBuf
-			defer func() {
-				out.w = nil
-			}()
-			if assert.NoError(t, runCommand(tc.cmd, in, false), "unexpected command error") {
-				assert.Equal(t, tc.out, outBuf.Bytes(), "expected command output")
-			}
+			te.runTest(t, tc.cmd, tc.in, tc.out)
 		})
 	})
 }
