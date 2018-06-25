@@ -13,7 +13,11 @@ type testEnv struct {
 	buf bytes.Buffer
 }
 
-func (te *testEnv) runTest(t *testing.T, cmd command, in, expected []byte) {
+func (te *testEnv) runTest(t *testing.T, cmdStr string, in, expected []byte) {
+	cmd, err := parseCommand(cmdStr, &te.buf)
+	if !assert.NoError(t, err, "couldn't parse command %q", cmdStr) {
+		return
+	}
 	te.buf.Reset()
 	r := bytes.NewReader(in)
 	if !assert.NoError(t, runCommand(cmd, r, false), "unexpected command error") {
@@ -24,21 +28,25 @@ func (te *testEnv) runTest(t *testing.T, cmd command, in, expected []byte) {
 
 type cmdTestCase struct {
 	name string
-	cmd  command
+	cmd  string
 	in   []byte
 	out  []byte
 }
 
-// TODO expand this out to be a more integrative harness that parses a command
-// string, rather than manually constructed command networks.
-func withTestSink(t *testing.T, f func(out command, run func(tc cmdTestCase))) {
+type cmdTestCases []cmdTestCase
+
+func (tcs cmdTestCases) run(t *testing.T) {
 	var te testEnv
-	out := writer{&te.buf}
-	f(&out, func(tc cmdTestCase) {
+	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
 			te.runTest(t, tc.cmd, tc.in, tc.out)
 		})
-	})
+	}
+}
+
+func (tc cmdTestCase) run(t *testing.T) {
+	var te testEnv
+	te.runTest(t, tc.cmd, tc.in, tc.out)
 }
 
 func stripBlockSpace(s string) []byte {
