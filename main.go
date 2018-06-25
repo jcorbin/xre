@@ -4,6 +4,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"flag"
 	"io"
 	"log"
@@ -27,9 +28,27 @@ func run() error {
 	var w io.Writer = os.Stdout // TODO support redirection
 	w = bufio.NewWriter(w)      // TODO buffering control
 
-	cmd, err := compileCommands(flag.Args(), w)
+	args := flag.Args()
+	if len(args) == 0 {
+		// TODO default to just print? (i.e. degenerate to cat?)
+		return errors.New("no command(s) given")
+	}
+	lnks, err := scanCommand(args[0])
 	if err != nil {
 		return err
+	}
+	args = args[1:]
+
+	if len(args) > 0 {
+		return errors.New("reading input from file argument(s) not implemented") // TODO
+	}
+
+	var cmd command = writer{w}
+	for i := len(lnks) - 1; i >= 0; i-- {
+		cmd, err = lnks[i](cmd)
+		if err != nil {
+			return err
+		}
 	}
 
 	return withProf(func() error {

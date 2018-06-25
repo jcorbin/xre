@@ -11,10 +11,7 @@ import (
 	"syscall"
 )
 
-var (
-	errNoCommands = errors.New("no command(s) given")
-	errNoSep      = errors.New("missing separator")
-)
+var errNoSep = errors.New("missing separator")
 
 type scanner func(string) (linker, string, error)
 type linker func(command) (command, error)
@@ -50,38 +47,6 @@ func scanCommand(s string) (lnks []linker, err error) {
 		s, lnks = cont, append(lnks, lnk)
 	}
 	return lnks, nil
-}
-
-func compileCommands(args []string, w io.Writer) (cmd command, err error) {
-	var lnks []linker
-	for _, arg := range args {
-		more, err := scanCommand(arg)
-		if err != nil {
-			return nil, err
-		}
-
-		lnks = append(lnks, more...)
-
-		if err != nil {
-			return nil, err
-		}
-	}
-	if len(lnks) == 0 {
-		return nil, errNoCommands
-	}
-
-	cmd = writer{w}
-	for i := len(lnks) - 1; i >= 0; i-- {
-		cmd, err = lnks[i](cmd)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if err != nil {
-		return nil, err
-	}
-	return cmd, nil
 }
 
 func runCommand(cmd command, r io.Reader, useMmap bool) error {
