@@ -30,6 +30,14 @@ var commands = map[byte]scanner{
 // NOTE not actually a "scanner" due to needing to de-confuse the `type scanner` as noted above.
 func scanCommand(s string) (lnks []linker, err error) {
 	for len(s) > 0 {
+		switch s[0] {
+		case ' ', '\t', '\r', '\n':
+			s = s[1:]
+			continue
+
+			// case '{', '}': // TODO grouping support
+		}
+
 		scan, def := commands[s[0]]
 		if !def {
 			return lnks, fmt.Errorf("unrecognized command %q", s[0])
@@ -45,7 +53,6 @@ func scanCommand(s string) (lnks []linker, err error) {
 }
 
 func compileCommands(args []string, w io.Writer) (cmd command, err error) {
-	// TODO support more complex command pipelines than single straight lines
 	var lnks []linker
 	for _, arg := range args {
 		more, err := scanCommand(arg)
