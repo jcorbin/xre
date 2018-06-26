@@ -19,6 +19,7 @@ var commands = map[byte]scanner{
 	'y': scanY,
 	'g': scanG,
 	'v': scanV,
+	'j': scanJ,
 	'p': scanP,
 }
 
