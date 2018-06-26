@@ -2,6 +2,40 @@ package xre_test
 
 import "testing"
 
+func Test_integration(t *testing.T) {
+	cmdTestCases{
+		{
+			name: "finding and cutting through the blas",
+			cmd:  `y"\n\n" g/bla/ y"\n" v/bla/ j, p"\n"`,
+			in: stripBlockSpace(`
+			9 440
+			bla
+			bla
+			foo
+			bar
+
+			10 100
+			lab
+			lab
+			shepherd
+			heeler
+
+			12 1302
+			bla
+			bla
+			bla
+			bob
+			lob
+			law
+			`),
+			out: stripBlockSpace(`
+			9 440,foo,bar
+			12 1302,bob,lob,law
+			`),
+		},
+	}.run(t)
+}
+
 func Test_between(t *testing.T) {
 	cmdTestCases{
 		{name: "line splitting",
