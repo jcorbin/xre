@@ -20,9 +20,6 @@ var mainEnv = fileEnv{
 }
 
 func run() error {
-	useMmap := false
-	flag.BoolVar(&useMmap, "mmap", false, "force using mmap mode rather than streaming")
-
 	flag.Parse()
 
 	// TODO SIGPIPE handler
@@ -43,6 +40,6 @@ func run() error {
 	}
 
 	return withProf(func() error {
-		return runCommand(cmd, os.Stdin, &mainEnv, useMmap)
+		return runCommand(cmd, os.Stdin, &mainEnv)
 	})
 }

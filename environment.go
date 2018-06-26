@@ -10,7 +10,6 @@ type environment interface {
 	// Create(name string) (processor, error) TODO
 	// Printf(format string, args ...interface{}) TODO
 	// TODO takeover source io.Reader(s)?
-	// TODO takeover user settings like useMmap?
 }
 
 type fileEnv struct {

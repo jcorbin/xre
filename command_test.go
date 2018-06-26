@@ -24,7 +24,7 @@ func (te *testEnv) runTest(t *testing.T, cmdStr string, in, expected []byte) {
 	}
 	te.buf.Reset()
 	r := bytes.NewReader(in)
-	if !assert.NoError(t, runCommand(cmd, r, te, false), "command failed") {
+	if !assert.NoError(t, runCommand(cmd, r, te), "command failed") {
 		return
 	}
 	assert.Equal(t, expected, te.buf.Bytes(), "expected command output")

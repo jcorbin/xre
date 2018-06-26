@@ -4,11 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
-	"syscall"
 )
 
 var errNoSep = errors.New("missing separator")
@@ -66,24 +64,15 @@ func scanCommandAtom(s string) (command, string, error) {
 	return scan(s[1:])
 }
 
-func runCommand(cmd command, r io.Reader, env environment, useMmap bool) error {
+func runCommand(cmd command, r io.Reader, env environment) error {
 	proc, err := create(cmd, env)
 	if err == nil {
-		err = runProcessor(proc, r, useMmap)
+		err = runProcessor(proc, r)
 	}
 	return err
 }
 
-func runProcessor(proc processor, r io.Reader, useMmap bool) error {
-	if f, canMmap := r.(filelike); useMmap && canMmap {
-		buf, fin, err := mmap(f)
-		if err == nil {
-			defer fin()
-			_, err = proc.Process(buf, true)
-		}
-		return err
-	}
-
+func runProcessor(proc processor, r io.Reader) error {
 	if rf, canReadFrom := proc.(io.ReaderFrom); canReadFrom {
 		_, err := rf.ReadFrom(r)
 		return err
@@ -193,33 +182,4 @@ func regexpString(re *regexp.Regexp) string {
 		s = s[:len(s)-1]
 	}
 	return s
-}
-
-type filelike interface {
-	Name() string
-	Stat() (os.FileInfo, error)
-	Fd() uintptr
-}
-
-func mmap(f filelike) ([]byte, func() error, error) {
-	fi, err := f.Stat()
-	if err != nil {
-		return nil, nil, fmt.Errorf("mmap: cannot stat %q: %v", f.Name(), err)
-	}
-
-	size := fi.Size()
-	if size <= 0 {
-		return nil, nil, fmt.Errorf("mmap: file %q has negative size", f.Name())
-	}
-	if size != int64(int(size)) {
-		return nil, nil, fmt.Errorf("mmap: file %q is too large", f.Name())
-	}
-
-	data, err := syscall.Mmap(int(f.Fd()), 0, int(size), syscall.PROT_READ, syscall.MAP_SHARED)
-	if err != nil {
-		return nil, nil, err
-	}
-	return data, func() error {
-		return syscall.Munmap(data)
-	}, nil
 }
