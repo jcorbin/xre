@@ -95,8 +95,6 @@ func (y between) Create(nc command, env environment) (processor, error) {
 	return bds, nil
 }
 
-// func (y between) String() string TODO needs Create(nil, nil) to work?
-
 type betweenBalanced struct {
 	open, close byte
 	next        processor
@@ -193,6 +191,21 @@ func (bds betweenDelimSplit) Process(buf []byte, ateof bool) (off int, err error
 	return off, err
 }
 
+func (y between) String() string {
+	if y.pat != nil {
+		return fmt.Sprintf("y/%v/", regexpString(y.pat))
+	}
+	if y.delim != "" {
+		if y.cutset != "" {
+			return fmt.Sprintf(`y%q~%q`, y.delim, y.cutset)
+		}
+		return fmt.Sprintf(`y%q`, y.delim)
+	}
+	if y.open != 0 {
+		return fmt.Sprintf("y%s", string(y.open))
+	}
+	return "y"
+}
 func (bb betweenBalanced) String() string {
 	return fmt.Sprintf("y%s%v", string(bb.open), bb.next)
 }

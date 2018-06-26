@@ -155,6 +155,15 @@ func (dw delimWriter) Process(buf []byte, ateof bool) (off int, err error) {
 	return len(buf), err
 }
 
+func (p print) String() string {
+	if p.fmt != "" {
+		return fmt.Sprintf("p%%%q", p.fmt)
+	}
+	if p.delim != "" {
+		return fmt.Sprintf("p%q", p.delim)
+	}
+	return "p"
+}
 func (fr fmter) String() string       { return fmt.Sprintf("p%%%q%v", fr.fmt, fr.next) }
 func (dr delimer) String() string     { return fmt.Sprintf("p%q%v", dr.delim, dr.next) }
 func (wr writer) String() string      { return "p" }

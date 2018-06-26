@@ -60,8 +60,6 @@ func (x extract) Create(nc command, env environment) (processor, error) {
 	}
 }
 
-// func (x between) String() string TODO needs Create(nil, nil) to work?
-
 type extractRe struct {
 	pat  *regexp.Regexp
 	next processor
@@ -132,6 +130,15 @@ func (eb extractBalanced) Process(buf []byte, ateof bool) (off int, err error) {
 	return off, err
 }
 
+func (x extract) String() string {
+	if x.pat != nil {
+		return fmt.Sprintf("x/%v/", regexpString(x.pat))
+	}
+	if x.open != 0 {
+		return fmt.Sprintf("x%s", string(x.open))
+	}
+	return "x"
+}
 func (er extractRe) String() string {
 	return fmt.Sprintf("x/%v/%v", regexpString(er.pat), er.next)
 }

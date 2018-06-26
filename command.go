@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -134,6 +135,17 @@ func (cc commandChain) Create(nc command, env environment) (processor, error) {
 		tail = nil
 	}
 	return head.Create(tail, env)
+}
+
+func (cc commandChain) String() string {
+	buf := bytes.NewBuffer(make([]byte, 0, 4*len(cc)))
+	for i, c := range cc {
+		if i > 0 {
+			_ = buf.WriteByte(' ')
+		}
+		_, _ = fmt.Fprint(buf, c)
+	}
+	return buf.String()
 }
 
 func scanDelim(sep byte, r string) (part, rest string, err error) {
