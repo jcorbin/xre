@@ -60,18 +60,18 @@ type filterNeg struct {
 	next processor
 }
 
-func (fl filter) Process(buf []byte, last bool) (off int, err error) {
+func (fl filter) Process(buf []byte, last bool) error {
 	if fl.pat.Match(buf) {
 		return fl.next.Process(buf, last)
 	}
-	return 0, nil
+	return nil
 }
 
-func (fn filterNeg) Process(buf []byte, last bool) (off int, err error) {
+func (fn filterNeg) Process(buf []byte, last bool) error {
 	if !fn.pat.Match(buf) {
 		return fn.next.Process(buf, last)
 	}
-	return 0, nil
+	return nil
 }
 
 func (g gcommand) String() string {

@@ -115,44 +115,44 @@ type delimWriter struct {
 	writer
 }
 
-func (fr *fmter) Process(buf []byte, last bool) (off int, err error) {
+func (fr *fmter) Process(buf []byte, last bool) error {
 	fr.tmp.Reset()
 	_, _ = fmt.Fprintf(&fr.tmp, fr.fmt, buf)
 	return fr.next.Process(fr.tmp.Bytes(), last)
 }
 
-func (dr *delimer) Process(buf []byte, last bool) (off int, err error) {
+func (dr *delimer) Process(buf []byte, last bool) error {
 	dr.tmp.Reset()
 	_, _ = dr.tmp.Write(buf)
 	_, _ = dr.tmp.Write(dr.delim)
 	return dr.next.Process(dr.tmp.Bytes(), last)
 }
 
-func (wr writer) Process(buf []byte, last bool) (off int, err error) {
+func (wr writer) Process(buf []byte, last bool) error {
 	if buf == nil {
-		return 0, nil
+		return nil
 	}
-	_, err = wr.w.Write(buf)
-	return len(buf), err
+	_, err := wr.w.Write(buf)
+	return err
 }
 
-func (fw fmtWriter) Process(buf []byte, last bool) (off int, err error) {
+func (fw fmtWriter) Process(buf []byte, last bool) error {
 	if buf == nil {
-		return 0, nil
+		return nil
 	}
-	_, err = fmt.Fprintf(fw.w, fw.fmt, buf)
-	return len(buf), err
+	_, err := fmt.Fprintf(fw.w, fw.fmt, buf)
+	return err
 }
 
-func (dw delimWriter) Process(buf []byte, last bool) (off int, err error) {
+func (dw delimWriter) Process(buf []byte, last bool) error {
 	if buf == nil {
-		return 0, nil
+		return nil
 	}
-	_, err = dw.w.Write(buf)
+	_, err := dw.w.Write(buf)
 	if err == nil {
 		_, err = dw.w.Write(dw.delim)
 	}
-	return len(buf), err
+	return err
 }
 
 // ReadFrom copies data directly from the given reader to the wrapped writer.

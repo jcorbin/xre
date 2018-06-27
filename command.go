@@ -99,10 +99,8 @@ type procIOAdaptor struct {
 
 func (proc procIOAdaptor) ReadFrom(r io.Reader) (int64, error) {
 	return proc.buf.ProcessFrom(r, func(rs *readState, final bool) error {
-		m, err := proc.Process(rs.Bytes(), final)
-		if m > 0 {
-			rs.Advance(m)
-		}
+		err := proc.Process(rs.Bytes(), final)
+		rs.Advance(rs.Len())
 		return err
 	})
 }
@@ -112,7 +110,7 @@ type command interface {
 }
 
 type processor interface {
-	Process(buf []byte, last bool) (off int, err error)
+	Process(buf []byte, last bool) error
 }
 
 type processorIO interface {
