@@ -193,7 +193,7 @@ func (bds betweenDelimSplit) Process(buf []byte, ateof bool) (off int, err error
 
 func (y between) String() string {
 	if y.pat != nil {
-		return fmt.Sprintf("y/%v/", regexpString(y.pat))
+		return fmt.Sprintf("y%v", regexpString(y.pat))
 	}
 	if y.delim != "" {
 		if y.cutset != "" {
@@ -210,7 +210,7 @@ func (bb betweenBalanced) String() string {
 	return fmt.Sprintf("y%s%v", string(bb.open), bb.next)
 }
 func (bd betweenDelimRe) String() string {
-	return fmt.Sprintf("y/%v/%v", regexpString(bd.pat), bd.next)
+	return fmt.Sprintf("y%v%v", regexpString(bd.pat), bd.next)
 }
 func (bds betweenDelimSplit) String() string {
 	return fmt.Sprintf("y%v%v", bds.split, bds.next)

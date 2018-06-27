@@ -132,7 +132,7 @@ func (eb extractBalanced) Process(buf []byte, ateof bool) (off int, err error) {
 
 func (x extract) String() string {
 	if x.pat != nil {
-		return fmt.Sprintf("x/%v/", regexpString(x.pat))
+		return fmt.Sprintf("x%v", regexpString(x.pat))
 	}
 	if x.open != 0 {
 		return fmt.Sprintf("x%s", string(x.open))
@@ -140,10 +140,10 @@ func (x extract) String() string {
 	return "x"
 }
 func (er extractRe) String() string {
-	return fmt.Sprintf("x/%v/%v", regexpString(er.pat), er.next)
+	return fmt.Sprintf("x%v%v", regexpString(er.pat), er.next)
 }
 func (ers extractReSub) String() string {
-	return fmt.Sprintf("x/%v/%v", regexpString(ers.pat), ers.next)
+	return fmt.Sprintf("x%v%v", regexpString(ers.pat), ers.next)
 }
 func (eb extractBalanced) String() string {
 	return fmt.Sprintf("x%s%s%v", string(eb.open), string(eb.close), eb.next)

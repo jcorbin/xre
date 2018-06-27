@@ -76,13 +76,13 @@ func (fn filterNeg) Process(buf []byte, ateof bool) (off int, err error) {
 
 func (g gcommand) String() string {
 	if g.negate {
-		return fmt.Sprintf("v/%v/", regexpString(g.pat))
+		return fmt.Sprintf("v%v", regexpString(g.pat))
 	}
-	return fmt.Sprintf("g/%v/", regexpString(g.pat))
+	return fmt.Sprintf("g%v", regexpString(g.pat))
 }
 func (fl filter) String() string {
-	return fmt.Sprintf("g/%v/%v", regexpString(fl.pat), fl.next)
+	return fmt.Sprintf("g%v%v", regexpString(fl.pat), fl.next)
 }
 func (fn filterNeg) String() string {
-	return fmt.Sprintf("v/%v/%v", regexpString(fn.pat), fn.next)
+	return fmt.Sprintf("v%v%v", regexpString(fn.pat), fn.next)
 }
