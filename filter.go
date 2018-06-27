@@ -60,16 +60,16 @@ type filterNeg struct {
 	next processor
 }
 
-func (fl filter) Process(buf []byte, ateof bool) (off int, err error) {
+func (fl filter) Process(buf []byte, last bool) (off int, err error) {
 	if fl.pat.Match(buf) {
-		return fl.next.Process(buf, ateof)
+		return fl.next.Process(buf, last)
 	}
 	return 0, nil
 }
 
-func (fn filterNeg) Process(buf []byte, ateof bool) (off int, err error) {
+func (fn filterNeg) Process(buf []byte, last bool) (off int, err error) {
 	if !fn.pat.Match(buf) {
-		return fn.next.Process(buf, ateof)
+		return fn.next.Process(buf, last)
 	}
 	return 0, nil
 }

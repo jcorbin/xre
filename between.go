@@ -114,7 +114,7 @@ type splitter interface {
 	Split(data []byte, atEOF bool) (advance int, token []byte, err error)
 }
 
-func (bb betweenBalanced) Process(buf []byte, ateof bool) (int, error) {
+func (bb betweenBalanced) Process(buf []byte, last bool) (int, error) {
 	// TODO escaping? quoting?
 	level, start := 0, 0
 	for off := 0; off < len(buf); off++ {
@@ -139,7 +139,7 @@ func (bb betweenBalanced) Process(buf []byte, ateof bool) (int, error) {
 	return len(buf), nil
 }
 
-func (bdr betweenDelimRe) Process(buf []byte, ateof bool) (int, error) {
+func (bdr betweenDelimRe) Process(buf []byte, last bool) (int, error) {
 	// TODO inclusive variant?
 	for off := 0; off < len(buf); {
 		loc := bdr.pat.FindIndex(buf[off:])
@@ -156,11 +156,11 @@ func (bdr betweenDelimRe) Process(buf []byte, ateof bool) (int, error) {
 	return len(buf), nil
 }
 
-func (bds betweenDelimSplit) Process(buf []byte, ateof bool) (int, error) {
+func (bds betweenDelimSplit) Process(buf []byte, last bool) (int, error) {
 	const maxConsecutiveEmptyReads = 100
 	empties := 0
 	for off := 0; off < len(buf); {
-		advance, token, err := bds.split.Split(buf[off:], ateof)
+		advance, token, err := bds.split.Split(buf[off:], true)
 		if err != nil && err != bufio.ErrFinalToken {
 			return off, err
 		}

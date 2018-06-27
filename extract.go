@@ -75,7 +75,7 @@ type extractBalanced struct {
 	next        processor
 }
 
-func (er extractRe) Process(buf []byte, ateof bool) (int, error) {
+func (er extractRe) Process(buf []byte, last bool) (int, error) {
 	for off := 0; off < len(buf); {
 		loc := er.pat.FindIndex(buf[off:])
 		if loc == nil {
@@ -83,14 +83,14 @@ func (er extractRe) Process(buf []byte, ateof bool) (int, error) {
 		}
 		m := buf[off+loc[0] : off+loc[1]] // extracted match
 		off += loc[1]
-		if _, err := er.next.Process(m, off >= len(buf) && ateof); err != nil {
+		if _, err := er.next.Process(m, off >= len(buf)); err != nil {
 			return off, err
 		}
 	}
 	return len(buf), nil
 }
 
-func (ers extractReSub) Process(buf []byte, ateof bool) (int, error) {
+func (ers extractReSub) Process(buf []byte, last bool) (int, error) {
 	for off := 0; off < len(buf); {
 		locs := ers.pat.FindSubmatchIndex(buf[off:])
 		if locs == nil {
@@ -98,14 +98,14 @@ func (ers extractReSub) Process(buf []byte, ateof bool) (int, error) {
 		}
 		m := buf[off+locs[2] : off+locs[3]] // extracted match
 		off += locs[1]
-		if _, err := ers.next.Process(m, off >= len(buf) && ateof); err != nil {
+		if _, err := ers.next.Process(m, off >= len(buf)); err != nil {
 			return off, err
 		}
 	}
 	return len(buf), nil
 }
 
-func (eb extractBalanced) Process(buf []byte, ateof bool) (int, error) {
+func (eb extractBalanced) Process(buf []byte, last bool) (int, error) {
 	// TODO escaping? quoting?
 	for level, start, off := 0, 0, 0; off < len(buf); off++ {
 		switch buf[off] {

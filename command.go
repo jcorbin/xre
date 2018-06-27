@@ -112,7 +112,7 @@ type command interface {
 }
 
 type processor interface {
-	Process(buf []byte, ateof bool) (off int, err error)
+	Process(buf []byte, last bool) (off int, err error)
 }
 
 type processorIO interface {
