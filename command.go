@@ -167,13 +167,18 @@ func scanPat(sep byte, r string) (*regexp.Regexp, string, error) {
 		pat = regexp.QuoteMeta(pat)
 	}
 
-	if len(rest) > 0 && rest[0] == 'i' {
-		// TODO reconsider the case insensitivity affordance
-		pat = "(?i:" + pat + ")"
-		rest = rest[1:]
+flagScan:
+	for len(rest) > 0 {
+		switch rest[0] {
+		case 'i', 's', 'U':
+			pat = fmt.Sprintf("(?%s:%s)", rest[:1], pat)
+			rest = rest[1:]
+		default:
+			break flagScan
+		}
 	}
 
-	pat = "(?ms:" + pat + ")"
+	pat = "(?m:" + pat + ")"
 	re, err := regexp.Compile(pat)
 	return re, rest, err
 }
@@ -189,15 +194,23 @@ func scanString(sep byte, s string) (val, rest string, err error) {
 func regexpString(re *regexp.Regexp) string {
 	flags := ""
 	s := re.String()
-	// TODO share with scanPat that adds the prefix
-	if strings.HasPrefix(s, "(?ms:") {
-		s = s[5:]
-		s = s[:len(s)-1]
-	}
-	if strings.HasPrefix(s, "(?i:") {
+
+	if strings.HasPrefix(s, "(?m:") {
 		s = s[4:]
 		s = s[:len(s)-1]
-		flags += "i"
 	}
+
+flagScan:
+	for len(s) > 5 {
+		if strings.HasPrefix(s, "(?") && s[3] == ':' {
+			switch s[2] {
+			case 'i', 's', 'U':
+				flags += s[2:3]
+			default:
+				break flagScan
+			}
+		}
+	}
+
 	return fmt.Sprintf("/%s/%s", s, flags)
 }
