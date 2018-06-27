@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"io/ioutil"
 	"os"
 )
 
@@ -17,6 +18,10 @@ type fileEnv struct {
 	defp processor
 }
 
+type _nullEnv struct{}
+
+var nullEnv environment = _nullEnv{}
+
 func (fe *fileEnv) Default() processor {
 	if fe.defp == nil {
 		fe.defp = writer{bufio.NewWriter(fe.deff)} // TODO buffering control
@@ -30,4 +35,8 @@ func create(nc command, env environment) (processor, error) {
 		return env.Default(), nil
 	}
 	return nc.Create(nil, env)
+}
+
+func (ne _nullEnv) Default() processor {
+	return writer{ioutil.Discard}
 }
