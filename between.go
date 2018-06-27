@@ -216,7 +216,7 @@ func (bds betweenDelimSplit) String() string {
 	return fmt.Sprintf("y%v%v", bds.split, bds.next)
 }
 
-func (ls lineSplitter) String() string        { return fmt.Sprintf("%q", strings.Repeat(`\n`, int(ls))) }
+func (ls lineSplitter) String() string        { return fmt.Sprintf("%q", strings.Repeat("\n", int(ls))) }
 func (bs byteSplitter) String() string        { return fmt.Sprintf("%q", string(bs)) }
 func (bss bytesSplitter) String() string      { return fmt.Sprintf("%q", []byte(bss)) }
 func (bst byteSplitTrimmer) String() string   { return fmt.Sprintf("%q~%q", bst.delim, bst.cutset) }
