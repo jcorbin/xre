@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"testing"
 	"unicode"
@@ -22,6 +23,9 @@ func (te *testEnv) runTest(t *testing.T, cmdStr string, in, expected []byte) {
 	if !assert.NoError(t, err, "couldn't parse command %q", cmdStr) {
 		return
 	}
+
+	assert.Equal(t, cmdStr, fmt.Sprint(cmd), "expected command string to round-trip")
+
 	te.buf.Reset()
 	r := bytes.NewReader(in)
 	if !assert.NoError(t, runCommand(cmd, r, te), "command failed") {
