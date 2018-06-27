@@ -65,8 +65,15 @@ func scanCommandAtom(s string) (command, string, error) {
 	return scan(s[1:])
 }
 
+func createProcessor(cmd command, env environment) (processor, error) {
+	if cmd == nil {
+		return env.Default(), nil
+	}
+	return cmd.Create(nil, env)
+}
+
 func runCommand(cmd command, r io.Reader, env environment) error {
-	proc, err := create(cmd, env)
+	proc, err := createProcessor(cmd, env)
 	if err == nil {
 		err = runProcessor(proc, r)
 	}
@@ -124,7 +131,7 @@ func chain(a, b command) command {
 
 func (cc commandChain) Create(nc command, env environment) (processor, error) {
 	if len(cc) == 0 {
-		return create(nc, env)
+		return createProcessor(nc, env)
 	}
 	head := cc[0]
 	tail := cc[:copy(cc, cc[1:])]

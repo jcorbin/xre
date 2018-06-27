@@ -43,7 +43,7 @@ type print struct {
 }
 
 func (p print) Create(nc command, env environment) (processor, error) {
-	next, err := create(nc, env)
+	next, err := createProcessor(nc, env)
 	if err != nil {
 		return nil, err
 	}

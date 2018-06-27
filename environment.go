@@ -29,14 +29,6 @@ func (fe *fileEnv) Default() processor {
 	return fe.defp
 }
 
-// TODO rename createCommand?
-func create(nc command, env environment) (processor, error) {
-	if nc == nil {
-		return env.Default(), nil
-	}
-	return nc.Create(nil, env)
-}
-
 func (ne _nullEnv) Default() processor {
 	return writer{ioutil.Discard}
 }

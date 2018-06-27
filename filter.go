@@ -39,7 +39,7 @@ func (g gcommand) Create(nc command, env environment) (processor, error) {
 		return nil, errors.New("empty g command")
 	}
 
-	next, err := create(nc, env)
+	next, err := createProcessor(nc, env)
 	if err != nil {
 		return nil, err
 	}

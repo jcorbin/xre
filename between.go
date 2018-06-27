@@ -68,7 +68,7 @@ func (y between) Create(nc command, env environment) (processor, error) {
 		return nil, errors.New("empty y command")
 	}
 
-	next, err := create(nc, env)
+	next, err := createProcessor(nc, env)
 	if err != nil {
 		return nil, err
 	}
