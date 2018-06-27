@@ -65,21 +65,21 @@ func (p print) Create(nc command, env environment) (processor, error) {
 	switch impl := next.(type) {
 	case writer:
 		if p.fmt != "" {
-			return fmtWriter{fmt: p.fmt, w: impl.w}, nil
+			return fmtWriter{p.fmt, impl}, nil
 		}
-		return delimWriter{delim: delim, w: impl.w}, nil
+		return delimWriter{delim, impl}, nil
 
 	case fmtWriter:
 		if p.fmt != "" {
-			return fmtWriter{fmt: p.fmt + impl.fmt, w: impl.w}, nil
+			return fmtWriter{p.fmt + impl.fmt, impl.writer}, nil
 		}
-		return delimWriter{delim: delim, w: impl.w}, nil
+		return delimWriter{delim, impl.writer}, nil
 
 	case delimWriter:
 		if p.fmt != "" {
-			return fmtWriter{fmt: p.fmt + string(impl.delim), w: impl.w}, nil
+			return fmtWriter{p.fmt + string(impl.delim), impl.writer}, nil
 		}
-		return delimWriter{delim: append(delim, impl.delim...), w: impl.w}, nil
+		return delimWriter{append(delim, impl.delim...), impl.writer}, nil
 
 	default:
 		if p.fmt != "" {
@@ -107,12 +107,12 @@ type writer struct {
 
 type fmtWriter struct {
 	fmt string
-	w   io.Writer
+	writer
 }
 
 type delimWriter struct {
 	delim []byte
-	w     io.Writer
+	writer
 }
 
 func (fr *fmter) Process(buf []byte, ateof bool) (off int, err error) {
@@ -153,6 +153,14 @@ func (dw delimWriter) Process(buf []byte, ateof bool) (off int, err error) {
 		_, err = dw.w.Write(dw.delim)
 	}
 	return len(buf), err
+}
+
+// ReadFrom copies data directly from the given reader to the wrapped writer.
+// Also implements for fmtWriter and delimWriter by embedding, so that they
+// degrade to ignoring the format/delim request when streaming (rather than
+// quote or format arbitrarily-sized read chunks).
+func (wr writer) ReadFrom(r io.Reader) (n int64, err error) {
+	return io.Copy(wr.w, r)
 }
 
 func (p print) String() string {
