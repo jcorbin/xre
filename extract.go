@@ -70,11 +70,6 @@ type extractReSub struct {
 	next processor
 }
 
-type extractBalanced struct {
-	open, close byte
-	next        processor
-}
-
 func (er extractRe) Process(buf []byte, last bool) error {
 	for off := 0; off < len(buf); {
 		loc := er.pat.FindIndex(buf[off:])
@@ -100,30 +95,6 @@ func (ers extractReSub) Process(buf []byte, last bool) error {
 		off += locs[1]
 		if err := ers.next.Process(m, off >= len(buf)); err != nil {
 			return err
-		}
-	}
-	return nil
-}
-
-func (eb extractBalanced) Process(buf []byte, last bool) error {
-	// TODO escaping? quoting?
-	for level, start, off := 0, 0, 0; off < len(buf); off++ {
-		switch buf[off] {
-		case eb.open:
-			if level == 0 {
-				start = off
-			}
-			level++
-		case eb.close:
-			level--
-			if level < 0 {
-				level = 0
-			} else if level == 0 {
-				m := buf[start : off+1] // extracted match
-				if err := eb.next.Process(m, false); err != nil {
-					return err
-				}
-			}
 		}
 	}
 	return nil
