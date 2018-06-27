@@ -114,10 +114,10 @@ type splitter interface {
 	Split(data []byte, atEOF bool) (advance int, token []byte, err error)
 }
 
-func (bb betweenBalanced) Process(buf []byte, ateof bool) (off int, err error) {
+func (bb betweenBalanced) Process(buf []byte, ateof bool) (int, error) {
 	// TODO escaping? quoting?
 	level, start := 0, 0
-	for ; err == nil && off < len(buf); off++ {
+	for off := 0; off < len(buf); off++ {
 		switch buf[off] {
 		case bb.open:
 			if level == 0 {
@@ -130,16 +130,18 @@ func (bb betweenBalanced) Process(buf []byte, ateof bool) (off int, err error) {
 				level = 0
 			} else if level == 0 {
 				m := buf[start:off] // extracted match
-				_, err = bb.next.Process(m, false)
+				if _, err := bb.next.Process(m, false); err != nil {
+					return off, err
+				}
 			}
 		}
 	}
-	return off, err
+	return len(buf), nil
 }
 
-func (bd betweenDelimRe) Process(buf []byte, ateof bool) (off int, err error) {
+func (bd betweenDelimRe) Process(buf []byte, ateof bool) (int, error) {
 	// TODO inclusive variant?
-	for err == nil && off < len(buf) {
+	for off := 0; off < len(buf); {
 		loc := bd.pat.FindIndex(buf[off:])
 		if loc == nil {
 			if ateof {
@@ -150,34 +152,37 @@ func (bd betweenDelimRe) Process(buf []byte, ateof bool) (off int, err error) {
 		}
 		m := buf[off : off+loc[0]] // extracted match
 		off += loc[1]
-		_, err = bd.next.Process(m, false)
+		if _, err := bd.next.Process(m, false); err != nil {
+			return off, err
+		}
 	}
-	return off, err
+	return len(buf), nil
 }
 
-func (bds betweenDelimSplit) Process(buf []byte, ateof bool) (off int, err error) {
+func (bds betweenDelimSplit) Process(buf []byte, ateof bool) (int, error) {
 	const maxConsecutiveEmptyReads = 100
 	empties := 0
-	for err == nil && off < len(buf) {
-		var advance int
-		var token []byte
-		if advance, token, err = bds.split.Split(buf[off:], ateof); advance < 0 {
-			if err == nil {
-				err = bufio.ErrNegativeAdvance
-			}
+	for off := 0; off < len(buf); {
+		advance, token, err := bds.split.Split(buf[off:], ateof)
+		if err != nil && err != bufio.ErrFinalToken {
+			return off, err
+		}
+		if advance < 0 {
+			return off, bufio.ErrNegativeAdvance
 		} else if advance > len(buf)-off {
-			if err == nil {
-				err = bufio.ErrAdvanceTooFar
-			}
-		} else {
-			off += advance
+			return off, bufio.ErrAdvanceTooFar
 		}
-		if err != nil || token == nil {
-			if err == bufio.ErrFinalToken {
-				_, err = bds.next.Process(token, true)
-			}
-			break
+		off += advance
+
+		if token == nil {
+			return off, nil
 		}
+
+		if err == bufio.ErrFinalToken {
+			_, err = bds.next.Process(token, true)
+			return off, err
+		}
+
 		if advance > 0 {
 			empties = 0
 		} else {
@@ -186,9 +191,12 @@ func (bds betweenDelimSplit) Process(buf []byte, ateof bool) (off int, err error
 				return off, errTooManyEmpties
 			}
 		}
-		_, err = bds.next.Process(token, true)
+
+		if _, err = bds.next.Process(token, true); err != nil {
+			return off, err
+		}
 	}
-	return off, err
+	return len(buf), nil
 }
 
 func (y between) String() string {
