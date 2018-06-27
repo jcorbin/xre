@@ -75,42 +75,39 @@ type extractBalanced struct {
 	next        processor
 }
 
-func (er extractRe) Process(buf []byte, ateof bool) (off int, err error) {
-	for err == nil && off < len(buf) {
+func (er extractRe) Process(buf []byte, ateof bool) (int, error) {
+	for off := 0; off < len(buf); {
 		loc := er.pat.FindIndex(buf[off:])
 		if loc == nil {
 			break
 		}
 		m := buf[off+loc[0] : off+loc[1]] // extracted match
-		if off += loc[1]; off < len(buf) {
-			_, err = er.next.Process(m, false)
-		} else {
-			_, err = er.next.Process(m, ateof)
+		off += loc[1]
+		if _, err := er.next.Process(m, off >= len(buf) && ateof); err != nil {
+			return off, err
 		}
 	}
-	return off, err
+	return len(buf), nil
 }
 
-func (ers extractReSub) Process(buf []byte, ateof bool) (off int, err error) {
-	for err == nil && off < len(buf) {
+func (ers extractReSub) Process(buf []byte, ateof bool) (int, error) {
+	for off := 0; off < len(buf); {
 		locs := ers.pat.FindSubmatchIndex(buf[off:])
 		if locs == nil {
 			break
 		}
 		m := buf[off+locs[2] : off+locs[3]] // extracted match
-		if off += locs[1]; off < len(buf) {
-			_, err = ers.next.Process(m, false)
-		} else {
-			_, err = ers.next.Process(m, ateof)
+		off += locs[1]
+		if _, err := ers.next.Process(m, off >= len(buf) && ateof); err != nil {
+			return off, err
 		}
 	}
-	return off, err
+	return len(buf), nil
 }
 
-func (eb extractBalanced) Process(buf []byte, ateof bool) (off int, err error) {
+func (eb extractBalanced) Process(buf []byte, ateof bool) (int, error) {
 	// TODO escaping? quoting?
-	level, start := 0, 0
-	for ; err == nil && off < len(buf); off++ {
+	for level, start, off := 0, 0, 0; off < len(buf); off++ {
 		switch buf[off] {
 		case eb.open:
 			if level == 0 {
@@ -123,11 +120,13 @@ func (eb extractBalanced) Process(buf []byte, ateof bool) (off int, err error) {
 				level = 0
 			} else if level == 0 {
 				m := buf[start : off+1] // extracted match
-				_, err = eb.next.Process(m, false)
+				if _, err := eb.next.Process(m, false); err != nil {
+					return off, err
+				}
 			}
 		}
 	}
-	return off, err
+	return len(buf), nil
 }
 
 func (x extract) String() string {
