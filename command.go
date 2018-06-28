@@ -89,7 +89,14 @@ func runProcessor(proc processor, r io.Reader) error {
 	// TODO if (some) commands implement io.Writer, then could upgrade to r.(WriterTo)
 
 	rb := readBuf{buf: make([]byte, 0, minRead)} // TODO configurable buffer size
-	return rb.Process(proc, r)
+	_, err := rb.ProcessFrom(r, func(rs *readState, final bool) error {
+		m, err := proc.Process(rs.Bytes(), final)
+		if m > 0 {
+			rs.Advance(m)
+		}
+		return err
+	})
+	return err
 }
 
 type command interface {

@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	minRead = 64 * 1024 // TODO tune
+	minRead = 64 * 1024 // TODO configurable buffer size
 )
 
 var errNegativeRead = errors.New("readBuf: reader returned negative count from Read")
@@ -18,9 +18,7 @@ type readBuf struct {
 	off int    // read at &buf[off], write at &buf[len(buf)]
 }
 
-func (rb *readBuf) Advance(n int) {
-	rb.off += n
-}
+func (rb *readBuf) Advance(n int) { rb.off += n }
 func (rb *readBuf) Bytes() []byte { return rb.buf[rb.off:] }
 func (rb *readBuf) Len() int      { return len(rb.buf) - rb.off }
 func (rb *readBuf) Cap() int      { return cap(rb.buf) }
@@ -91,20 +89,65 @@ func (rb *readBuf) tryGrowByReslice(n int) (int, bool) {
 	return 0, false
 }
 
-func (rb *readBuf) Process(proc processor, r io.Reader) error {
-	for {
-		m, err := rb.readMore(r)
-		last := err == io.EOF
-		buf := rb.Bytes()
-		m, procErr := proc.Process(buf, last)
-		if m > 0 {
-			rb.Advance(m)
+// ProcessFrom is a convenience for implementing io.ReaderFrom for a processor;
+// see readState.process for details.
+func (rb *readBuf) ProcessFrom(
+	r io.Reader,
+	handle func(rs *readState, final bool) error,
+) (n int64, _ error) {
+	rb.Reset()
+	rs := readState{
+		readBuf: rb,
+		r:       r,
+	}
+	return rs.n, rs.process(handle)
+}
+
+type readState struct {
+	*readBuf
+	r   io.Reader
+	n   int64
+	err error
+}
+
+// process reads from the wrapped io.Reader until an error occurs (either a
+// read error, or a processing error returned by the handle function). The
+// given handle function is called once after every successful read with final
+// set to false.
+//
+// If a read error occurs (maybe but not necessarily io.EOF), and the read
+// buffer is not empty, then the handle function is called one last time with
+// final set to true.
+//
+// Any read error or processing error (returned by handle) is returned in the end.
+//
+// The handler function should (try to) process rs.Bytes() and then call
+// rs.Advance() for however many bytes were consumed by the processing. Any
+// unconsumed bytes will still be in the buffer next time (unless final is
+// true, then there is no next time!)
+func (rs *readState) process(handle func(rs *readState, final bool) error) error {
+	for rs.err == nil {
+		var m int
+		m, rs.err = rs.readBuf.readMore(rs.r)
+		rs.n += int64(m)
+		if rs.err != nil && rs.err != io.EOF {
+			break
 		}
-		if err == nil || last {
-			err = procErr
-		}
-		if err != nil || last {
+		if err := handle(rs, false); err != nil {
+			if rs.err != nil {
+				err = rs.err
+			}
 			return err
 		}
 	}
+	var err error
+	if rs.err != io.EOF {
+		err = rs.err
+	}
+	if rs.Len() > 0 {
+		if er := handle(rs, false); er != nil && err == nil {
+			err = er
+		}
+	}
+	return err
 }
