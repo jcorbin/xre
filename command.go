@@ -72,31 +72,39 @@ func createProcessor(cmd command, env environment) (processor, error) {
 	return cmd.Create(nil, env)
 }
 
-func runCommand(cmd command, r io.Reader, env environment) error {
+func createProcessorIO(cmd command, env environment) (processorIO, error) {
 	proc, err := createProcessor(cmd, env)
+	if err != nil {
+		return nil, err
+	}
+	if procio, canio := proc.(processorIO); canio {
+		return procio, nil
+	}
+	// TODO scrap this adaptor, it's insane
+	return procIOAdaptor{processor: proc}, nil
+}
+
+func runCommand(cmd command, r io.Reader, env environment) error {
+	procio, err := createProcessorIO(cmd, env)
 	if err == nil {
-		err = runProcessor(proc, r)
+		_, err = procio.ReadFrom(r)
 	}
 	return err
 }
 
-func runProcessor(proc processor, r io.Reader) error {
-	if rf, canReadFrom := proc.(io.ReaderFrom); canReadFrom {
-		_, err := rf.ReadFrom(r)
-		return err
-	}
+type procIOAdaptor struct {
+	processor
+	buf readBuf
+}
 
-	// TODO if (some) commands implement io.Writer, then could upgrade to r.(WriterTo)
-
-	rb := readBuf{buf: make([]byte, 0, minRead)} // TODO configurable buffer size
-	_, err := rb.ProcessFrom(r, func(rs *readState, final bool) error {
+func (proc procIOAdaptor) ReadFrom(r io.Reader) (int64, error) {
+	return proc.buf.ProcessFrom(r, func(rs *readState, final bool) error {
 		m, err := proc.Process(rs.Bytes(), final)
 		if m > 0 {
 			rs.Advance(m)
 		}
 		return err
 	})
-	return err
 }
 
 type command interface {
@@ -105,6 +113,11 @@ type command interface {
 
 type processor interface {
 	Process(buf []byte, ateof bool) (off int, err error)
+}
+
+type processorIO interface {
+	processor
+	io.ReaderFrom
 }
 
 type commandChain []command
