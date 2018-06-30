@@ -20,14 +20,14 @@ func scanP(s string) (Command, string, error) {
 		if err != nil {
 			return nil, s, err
 		}
-		return ProtoCommand{printFormat(fmt)}, s, nil
+		return userGivenOutput{printFormat(fmt)}, s, nil
 
 	case '"':
 		delim, s, err := scanString(s[0], s[1:])
 		if err != nil {
 			return nil, s, err
 		}
-		return ProtoCommand{printDelim(delim)}, s, nil
+		return userGivenOutput{printDelim(delim)}, s, nil
 
 	default:
 		return nil, s, fmt.Errorf("unrecognized p command")
@@ -36,6 +36,40 @@ func scanP(s string) (Command, string, error) {
 
 type printFormat string
 type printDelim string
+
+func procWriter(proc Processor) (io.Writer, bool) {
+	switch impl := proc.(type) {
+	case *joinByteWriter:
+		return impl.w, true
+	case *joinStringWriter:
+		return impl.w, true
+	case fmtWriter:
+		return impl.w, true
+	case delimWriter:
+		return impl.w, true
+	case writer:
+		return impl.w, true
+	}
+	return nil, false
+}
+
+type userGivenOutput struct{ ProtoProcessor }
+
+func (ugo userGivenOutput) String() string { return fmt.Sprint(ugo.ProtoProcessor) }
+func (ugo userGivenOutput) Create(nc Command, env Environment) (Processor, error) {
+	next, err := createProcessor(nc, env)
+	if err != nil {
+		return nil, err
+	}
+	if nc == nil {
+		// nc == nil means we're at the end of user given command chain;
+		// override any env-default formatting or delimiting
+		if w, ok := procWriter(next); ok {
+			next = writer{w}
+		}
+	}
+	return ugo.ProtoProcessor.Create(next), nil
+}
 
 type fmtProc struct {
 	fmt  string
@@ -85,7 +119,14 @@ func (p printDelim) Create(next Processor) Processor {
 
 func (wr writer) Create(nc Command, env Environment) (Processor, error) {
 	next, err := createProcessor(nc, env)
-	return next, err
+	if err != nil || nc != nil {
+		return next, err
+	}
+	if w, ok := procWriter(next); ok {
+		wr.w = w
+		return wr, nil
+	}
+	return nil, fmt.Errorf("unable to extract writer from %T", next)
 }
 
 func (fp *fmtProc) Process(buf []byte, last bool) error {
