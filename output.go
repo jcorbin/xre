@@ -73,7 +73,7 @@ func (p print) Create(nc command, env environment) (processor, error) {
 		if p.fmt != "" {
 			return fmtWriter{p.fmt + impl.fmt, impl.writer}, nil
 		}
-		return delimWriter{delim, impl.writer}, nil
+		return fmtWriter{string(delim) + impl.fmt, impl.writer}, nil
 
 	case delimWriter:
 		if p.fmt != "" {
