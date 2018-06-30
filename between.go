@@ -139,20 +139,20 @@ func (bb betweenBalanced) Process(buf []byte, ateof bool) (int, error) {
 	return len(buf), nil
 }
 
-func (bd betweenDelimRe) Process(buf []byte, ateof bool) (int, error) {
+func (bdr betweenDelimRe) Process(buf []byte, ateof bool) (int, error) {
 	// TODO inclusive variant?
 	for off := 0; off < len(buf); {
-		loc := bd.pat.FindIndex(buf[off:])
+		loc := bdr.pat.FindIndex(buf[off:])
 		if loc == nil {
 			if ateof {
-				nextOff, err := bd.next.Process(buf[off:], true)
+				nextOff, err := bdr.next.Process(buf[off:], true)
 				return off + nextOff, err
 			}
 			break
 		}
 		m := buf[off : off+loc[0]] // extracted match
 		off += loc[1]
-		if _, err := bd.next.Process(m, false); err != nil {
+		if _, err := bdr.next.Process(m, false); err != nil {
 			return off, err
 		}
 	}
@@ -217,8 +217,8 @@ func (y between) String() string {
 func (bb betweenBalanced) String() string {
 	return fmt.Sprintf("y%s%v", string(bb.open), bb.next)
 }
-func (bd betweenDelimRe) String() string {
-	return fmt.Sprintf("y%v%v", regexpString(bd.pat), bd.next)
+func (bdr betweenDelimRe) String() string {
+	return fmt.Sprintf("y%v%v", regexpString(bdr.pat), bdr.next)
 }
 func (bds betweenDelimSplit) String() string {
 	return fmt.Sprintf("y%v%v", bds.split, bds.next)
