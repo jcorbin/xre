@@ -160,7 +160,7 @@ func (bds betweenDelimSplit) Process(buf []byte, last bool) error {
 	empties := 0
 	for off := 0; off < len(buf); {
 		advance, token, err := bds.split.Split(buf[off:], true)
-		if err != nil && err != bufio.ErrFinalToken {
+		if err != nil {
 			return err
 		}
 		if advance < 0 {
@@ -172,10 +172,6 @@ func (bds betweenDelimSplit) Process(buf []byte, last bool) error {
 
 		if token == nil {
 			return nil
-		}
-
-		if err == bufio.ErrFinalToken {
-			return bds.next.Process(token, true)
 		}
 
 		if advance > 0 {
