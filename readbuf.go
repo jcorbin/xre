@@ -19,6 +19,13 @@ type readBuf struct {
 }
 
 func (rb *readBuf) Advance(n int) { rb.off += n }
+func (rb *readBuf) Next(n int) []byte {
+	off := rb.off + n
+	buf := rb.buf[rb.off:off]
+	rb.off = off
+	return buf
+}
+
 func (rb *readBuf) Bytes() []byte { return rb.buf[rb.off:] }
 func (rb *readBuf) Len() int      { return len(rb.buf) - rb.off }
 func (rb *readBuf) Cap() int      { return cap(rb.buf) }
