@@ -222,20 +222,16 @@ func regexpString(re *regexp.Regexp) string {
 	flags := ""
 	s := re.String()
 
-	if strings.HasPrefix(s, "(?m:") {
-		s = s[4:]
-		s = s[:len(s)-1]
-	}
-
 flagScan:
-	for len(s) > 5 {
-		if strings.HasPrefix(s, "(?") && s[3] == ':' {
-			switch s[2] {
-			case 'i', 's', 'U':
-				flags += s[2:3]
-			default:
-				break flagScan
-			}
+	for len(s) > 5 && strings.HasPrefix(s, "(?") && s[3] == ':' {
+		switch s[2] {
+		case 'i', 's', 'U':
+			flags += s[2:3]
+			fallthrough
+		case 'm':
+			s = s[4 : len(s)-1]
+		default:
+			break flagScan
 		}
 	}
 
