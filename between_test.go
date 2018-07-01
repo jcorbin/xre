@@ -97,5 +97,33 @@ func Test_betweenDelim(t *testing.T) {
 			"leap"
 			`),
 		},
+
+		{
+			name: "between marker lines",
+			cmd:  `y/\n*--- MARK ---\n+/ p%"%q\n"`,
+			in: stripBlockSpace(`
+			--- MARK ---
+			bla bla
+			bla
+
+			--- MARK ---
+			what's all
+			this
+			then?
+
+
+			--- MARK ---
+
+			the king is dead
+			long live the king
+
+			`),
+			out: stripBlockSpace(`
+			""
+			"bla bla\nbla"
+			"what's all\nthis\nthen?"
+			"the king is dead\nlong live the king\n\n"
+			`),
+		},
 	}.run(t)
 }

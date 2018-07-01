@@ -144,11 +144,8 @@ func (bdr betweenDelimRe) Process(buf []byte, ateof bool) (int, error) {
 	for off := 0; off < len(buf); {
 		loc := bdr.pat.FindIndex(buf[off:])
 		if loc == nil {
-			if ateof {
-				nextOff, err := bdr.next.Process(buf[off:], true)
-				return off + nextOff, err
-			}
-			break
+			nextOff, err := bdr.next.Process(buf[off:], true)
+			return off + nextOff, err
 		}
 		m := buf[off : off+loc[0]] // extracted match
 		off += loc[1]
