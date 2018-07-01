@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"io/ioutil"
 	"os"
 )
@@ -20,6 +21,10 @@ type fileEnv struct {
 	defp processor
 }
 
+type bufEnv struct {
+	buf bytes.Buffer
+}
+
 var nullEnv environment = _nullEnv{}
 
 func (ne _nullEnv) Default() processor { return writer{ioutil.Discard} }
@@ -30,3 +35,5 @@ func (fe *fileEnv) Default() processor {
 	}
 	return fe.defp
 }
+
+func (be *bufEnv) Default() processor { return writer{&be.buf} }

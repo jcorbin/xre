@@ -11,11 +11,7 @@ import (
 )
 
 type testEnv struct {
-	buf bytes.Buffer
-}
-
-func (te *testEnv) Default() processor {
-	return writer{&te.buf}
+	bufEnv
 }
 
 func (te *testEnv) runTest(t *testing.T, cmdStr string, in, expected []byte) {
