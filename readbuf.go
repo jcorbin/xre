@@ -137,7 +137,7 @@ func (rs *readState) process(handle func(rs *readState, final bool) error) error
 		var m int
 		m, rs.err = rs.readBuf.readMore(rs.r)
 		rs.n += int64(m)
-		if rs.err != nil && rs.err != io.EOF {
+		if rs.err != nil {
 			break
 		}
 		if err := handle(rs, false); err != nil {
@@ -151,10 +151,8 @@ func (rs *readState) process(handle func(rs *readState, final bool) error) error
 	if rs.err != io.EOF {
 		err = rs.err
 	}
-	if rs.Len() > 0 {
-		if er := handle(rs, false); er != nil && err == nil {
-			err = er
-		}
+	if er := handle(rs, true); er != nil && err == nil {
+		err = er
 	}
 	return err
 }
