@@ -19,60 +19,44 @@ type readBuf struct {
 	err error
 }
 
-type readState struct {
-	*readBuf
-	r io.Reader
-	n int64
-}
-
-// ProcessFrom is a convenience for implementing io.ReaderFrom for a processor;
-// see readState.process for details.
-func (rb *readBuf) ProcessFrom(r io.Reader, handle func(rb *readBuf) error) (n int64, _ error) {
+// ProcessFrom is a convenience for implementing io.ReaderFrom for a processor:
+// - it reads from the wrapped io.Reader until an error occurs (either a read
+//   error, or a processing error returned by the handle function). The given
+//   handle function is called once after every successful read.
+// - if a read error occurs (maybe but not necessarily io.EOF) the handle
+//   function is called one last time.
+// - any read error or processing error (returned by handle) is returned in the
+//   end.
+//
+// The handler function should (try to) process buf.Bytes() and then call
+// buf.Advance() for however many bytes were consumed by the processing. Any
+// unconsumed bytes will still be in the buffer next time.
+func (rb *readBuf) ProcessFrom(r io.Reader, handle func(buf *readBuf) error) (n int64, _ error) {
 	rb.buf = rb.buf[:0]
 	rb.off = 0
 	rb.err = nil
-	rs := readState{
-		readBuf: rb,
-		r:       r,
-	}
-	return rs.n, rs.process(handle)
-}
-
-// process reads from the wrapped io.Reader until an error occurs (either a
-// read error, or a processing error returned by the handle function). The
-// given handle function is called once after every successful read.
-//
-// If a read error occurs (maybe but not necessarily io.EOF) the handle
-// function is called one last time.
-//
-// Any read error or processing error (returned by handle) is returned in the end.
-//
-// The handler function should (try to) process rs.Bytes() and then call
-// rs.Advance() for however many bytes were consumed by the processing. Any
-// unconsumed bytes will still be in the buffer next time.
-func (rs *readState) process(handle func(rb *readBuf) error) error {
-	for rs.err == nil {
+	for rb.err == nil {
 		var m int
-		m, rs.err = rs.readBuf.readMore(rs.r)
-		rs.n += int64(m)
-		if rs.err != nil {
+		m, rb.err = rb.readMore(r)
+		n += int64(m)
+		if rb.err != nil {
 			break
 		}
-		if err := handle(rs.readBuf); err != nil {
-			if rs.err != nil {
-				err = rs.err
+		if err := handle(rb); err != nil {
+			if rb.err != nil {
+				err = rb.err
 			}
-			return err
+			return n, err
 		}
 	}
 	var err error
-	if rs.err != io.EOF {
-		err = rs.err
+	if rb.err != io.EOF {
+		err = rb.err
 	}
-	if er := handle(rs.readBuf); er != nil && err == nil {
+	if er := handle(rb); er != nil && err == nil {
 		err = er
 	}
-	return err
+	return n, err
 }
 
 func (rb *readBuf) Err() error    { return rb.err }
