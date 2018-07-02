@@ -16,13 +16,13 @@ var errNegativeRead = errors.New("readBuf: reader returned negative count from R
 type readBuf struct {
 	buf []byte // contents are the bytes buf[off : len(buf)]
 	off int    // read at &buf[off], write at &buf[len(buf)]
+	err error
 }
 
 type readState struct {
 	*readBuf
-	r   io.Reader
-	n   int64
-	err error
+	r io.Reader
+	n int64
 }
 
 // ProcessFrom is a convenience for implementing io.ReaderFrom for a processor;
@@ -30,6 +30,7 @@ type readState struct {
 func (rb *readBuf) ProcessFrom(r io.Reader, handle func(rs *readState, final bool) error) (n int64, _ error) {
 	rb.buf = rb.buf[:0]
 	rb.off = 0
+	rb.err = nil
 	rs := readState{
 		readBuf: rb,
 		r:       r,
@@ -77,6 +78,7 @@ func (rs *readState) process(handle func(rs *readState, final bool) error) error
 	return err
 }
 
+func (rb *readBuf) Err() error    { return rb.err }
 func (rb *readBuf) Advance(n int) { rb.off += n }
 func (rb *readBuf) Next(n int) []byte {
 	off := rb.off + n
