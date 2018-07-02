@@ -98,9 +98,9 @@ type procIOAdaptor struct {
 }
 
 func (proc procIOAdaptor) ReadFrom(r io.Reader) (int64, error) {
-	return proc.buf.ProcessFrom(r, func(rs *readState, final bool) error {
-		err := proc.Process(rs.Bytes(), final)
-		rs.Advance(rs.Len())
+	return proc.buf.ProcessFrom(r, func(buf *readBuf) error {
+		err := proc.Process(buf.Bytes(), buf.Err() != nil)
+		buf.Advance(buf.Len())
 		return err
 	})
 }

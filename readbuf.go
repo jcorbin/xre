@@ -27,7 +27,7 @@ type readState struct {
 
 // ProcessFrom is a convenience for implementing io.ReaderFrom for a processor;
 // see readState.process for details.
-func (rb *readBuf) ProcessFrom(r io.Reader, handle func(rs *readState, final bool) error) (n int64, _ error) {
+func (rb *readBuf) ProcessFrom(r io.Reader, handle func(rb *readBuf) error) (n int64, _ error) {
 	rb.buf = rb.buf[:0]
 	rb.off = 0
 	rb.err = nil
@@ -40,20 +40,17 @@ func (rb *readBuf) ProcessFrom(r io.Reader, handle func(rs *readState, final boo
 
 // process reads from the wrapped io.Reader until an error occurs (either a
 // read error, or a processing error returned by the handle function). The
-// given handle function is called once after every successful read with final
-// set to false.
+// given handle function is called once after every successful read.
 //
-// If a read error occurs (maybe but not necessarily io.EOF), and the read
-// buffer is not empty, then the handle function is called one last time with
-// final set to true.
+// If a read error occurs (maybe but not necessarily io.EOF) the handle
+// function is called one last time.
 //
 // Any read error or processing error (returned by handle) is returned in the end.
 //
 // The handler function should (try to) process rs.Bytes() and then call
 // rs.Advance() for however many bytes were consumed by the processing. Any
-// unconsumed bytes will still be in the buffer next time (unless final is
-// true, then there is no next time!)
-func (rs *readState) process(handle func(rs *readState, final bool) error) error {
+// unconsumed bytes will still be in the buffer next time.
+func (rs *readState) process(handle func(rb *readBuf) error) error {
 	for rs.err == nil {
 		var m int
 		m, rs.err = rs.readBuf.readMore(rs.r)
@@ -61,7 +58,7 @@ func (rs *readState) process(handle func(rs *readState, final bool) error) error
 		if rs.err != nil {
 			break
 		}
-		if err := handle(rs, false); err != nil {
+		if err := handle(rs.readBuf); err != nil {
 			if rs.err != nil {
 				err = rs.err
 			}
@@ -72,7 +69,7 @@ func (rs *readState) process(handle func(rs *readState, final bool) error) error
 	if rs.err != io.EOF {
 		err = rs.err
 	}
-	if er := handle(rs, true); er != nil && err == nil {
+	if er := handle(rs.readBuf); er != nil && err == nil {
 		err = er
 	}
 	return err
