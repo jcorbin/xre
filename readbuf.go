@@ -28,7 +28,8 @@ type readState struct {
 // ProcessFrom is a convenience for implementing io.ReaderFrom for a processor;
 // see readState.process for details.
 func (rb *readBuf) ProcessFrom(r io.Reader, handle func(rs *readState, final bool) error) (n int64, _ error) {
-	rb.Reset()
+	rb.buf = rb.buf[:0]
+	rb.off = 0
 	rs := readState{
 		readBuf: rb,
 		r:       r,
@@ -87,10 +88,6 @@ func (rb *readBuf) Next(n int) []byte {
 func (rb *readBuf) Bytes() []byte { return rb.buf[rb.off:] }
 func (rb *readBuf) Len() int      { return len(rb.buf) - rb.off }
 func (rb *readBuf) Cap() int      { return cap(rb.buf) }
-func (rb *readBuf) Reset() {
-	rb.buf = rb.buf[:0]
-	rb.off = 0
-}
 
 func (rb *readBuf) readMore(r io.Reader) (n int, err error) {
 	i := rb.grow(minRead)
@@ -108,7 +105,8 @@ func (rb *readBuf) grow(n int) int {
 	m := rb.Len()
 	// If buffer is empty, reset to recover space.
 	if m == 0 && rb.off != 0 {
-		rb.Reset()
+		rb.buf = rb.buf[:0]
+		rb.off = 0
 	}
 	// Try to grow by means of a reslice.
 	if i, ok := rb.tryGrowByReslice(n); ok {
