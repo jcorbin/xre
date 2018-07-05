@@ -1,8 +1,9 @@
 # `xre` is to [`sam`][sam] as [`grep`][grep] is to [`ed`][ed]
 
-`xre` exists to bring the awesome power of Rob Pike's Rob Pike's [Structural
-Regular Expressions][seregexp] beyond the reach of the `sam` editor. For
-maximum Rob Pike (et al) it is written in [Go][go].
+`xre` exists to bring the awesome power of Rob Pike's [Structural Regular
+Expressions][seregexp] beyond the reach of the `sam` editor
+(approriately/coincidentally/ironically it is implemented in [Go][go], yielding
+more Rob Pike reference).
 
 **WARNING**: It is still in a primordial / experimental phase, but works well as a proof of concept.
 
@@ -24,7 +25,7 @@ A short comparison to the grep/ed model:
 
 ## Why?
 
-Loosely quoting from Rob Pike's [Structural Regular Expressions][seregexp]:
+Loosely quoting from [Structural Regular Expressions][seregexp]:
 
 > ...if the interesting quantum of information isn’t a line, most of the (UNIX) tools don’t help, or at best do poorly
 
