@@ -15,6 +15,11 @@ type testEnv struct {
 }
 
 func (te *testEnv) runTest(t *testing.T, cmdStr string, in, expected []byte) {
+	// set readBuf size as small as possible to provoke any bugs provoked by
+	// buffer advancing earlier.
+	defer func(prior int) { minRead = prior }(minRead)
+	minRead = 1
+
 	cmd, err := parseCommand(cmdStr)
 	if !assert.NoError(t, err, "couldn't parse command %q", cmdStr) {
 		return

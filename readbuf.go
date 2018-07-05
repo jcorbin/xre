@@ -6,7 +6,7 @@ import (
 	"io"
 )
 
-const (
+var (
 	minRead = 64 * 1024 // TODO configurable buffer size
 )
 
