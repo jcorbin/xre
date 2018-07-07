@@ -45,55 +45,40 @@ func (x extract) Create(nc command, env environment) (processor, error) {
 	if x.open != 0 {
 		return extractBalanced{x.open, x.close, next}, nil
 	}
+	m, err := x.createMatcher(env)
+	if err != nil {
+		return nil, err
+	}
+	return createMatcherCommand(m, next, env)
+}
+
+func (x extract) createMatcher(env environment) (matcher, error) {
 	if x.pat == nil {
 		return nil, errors.New("empty x command")
 	}
 	switch n := x.pat.NumSubexp(); n {
 	case 0:
-		return extractRe{x.pat, next}, nil
+		return extractRe{x.pat}, nil
 	case 1:
-		return extractReSub{x.pat, next}, nil
+		return extractReSub{x.pat}, nil
 	default:
 		return nil, fmt.Errorf("extraction with %v sub-patterns not supported", n)
 	}
 }
 
-type extractRe struct {
-	pat  *regexp.Regexp
-	next processor
-}
+type extractRe struct{ pat *regexp.Regexp }
+type extractReSub extractRe
 
-type extractReSub struct {
-	pat  *regexp.Regexp
-	next processor
-}
-
-func (er extractRe) Process(buf []byte, last bool) error {
-	for off := 0; off < len(buf); {
-		loc := er.pat.FindIndex(buf[off:])
-		if loc == nil {
-			break
-		}
-		m := buf[off+loc[0] : off+loc[1]] // extracted match
-		off += loc[1]
-		if err := er.next.Process(m, off >= len(buf)); err != nil {
-			return err
-		}
+func (er extractRe) match(mp *matchProcessor, buf []byte) error {
+	if loc := er.pat.FindIndex(buf); loc != nil {
+		return mp.pushLoc(loc[0], loc[1], loc[1])
 	}
 	return nil
 }
 
-func (ers extractReSub) Process(buf []byte, last bool) error {
-	for off := 0; off < len(buf); {
-		locs := ers.pat.FindSubmatchIndex(buf[off:])
-		if locs == nil {
-			break
-		}
-		m := buf[off+locs[2] : off+locs[3]] // extracted match
-		off += locs[1]
-		if err := ers.next.Process(m, off >= len(buf)); err != nil {
-			return err
-		}
+func (ers extractReSub) match(mp *matchProcessor, buf []byte) error {
+	if locs := ers.pat.FindSubmatchIndex(buf); locs != nil {
+		return mp.pushLoc(locs[2], locs[3], locs[1])
 	}
 	return nil
 }
@@ -109,5 +94,5 @@ func (x extract) String() string {
 }
 
 func (eb extractBalanced) String() string { return fmt.Sprintf("x%s%v", string(eb.open), eb.next) }
-func (er extractRe) String() string       { return fmt.Sprintf("x%v%v", regexpString(er.pat), er.next) }
-func (ers extractReSub) String() string   { return fmt.Sprintf("x%v%v", regexpString(ers.pat), ers.next) }
+func (er extractRe) String() string       { return fmt.Sprintf("x%v", regexpString(er.pat)) }
+func (ers extractReSub) String() string   { return fmt.Sprintf("x%v", regexpString(ers.pat)) }
