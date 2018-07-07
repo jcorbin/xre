@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"regexp"
 	"strings"
 )
@@ -68,6 +69,14 @@ func (y between) Create(nc command, env environment) (processor, error) {
 	if y.pat != nil {
 		return betweenDelimRe{y.pat, next}, nil
 	}
+	m, err := y.createMatcher(env)
+	if err != nil {
+		return nil, err
+	}
+	return createMatcherCommand(m, next, env)
+}
+
+func (y between) createMatcher(env environment) (matcher, error) {
 	if y.delim == "" {
 		return nil, errors.New("empty y command")
 	}
@@ -82,7 +91,7 @@ func (y between) Create(nc command, env environment) (processor, error) {
 	if y.cutset != "" {
 		split = trimmedSplitter(split, y.cutset)
 	}
-	return betweenDelimSplit{split, next}, nil
+	return betweenDelimSplit{split}, nil
 }
 
 type betweenDelimRe struct {
@@ -90,10 +99,7 @@ type betweenDelimRe struct {
 	next processor
 }
 
-type betweenDelimSplit struct {
-	split splitter
-	next  processor
-}
+type betweenDelimSplit struct{ split splitter }
 
 type splitter interface {
 	Split(data []byte, atEOF bool) (advance int, token []byte, err error)
@@ -115,39 +121,27 @@ func (bdr betweenDelimRe) Process(buf []byte, last bool) error {
 	return nil
 }
 
-func (bds betweenDelimSplit) Process(buf []byte, last bool) error {
-	const maxConsecutiveEmptyReads = 100
-	empties := 0
-	for off := 0; off < len(buf); {
-		advance, token, err := bds.split.Split(buf[off:], true)
-		if err != nil {
-			return err
-		}
+func (bds betweenDelimSplit) match(mp *matchProcessor, buf []byte) error {
+	// TODO refactor splitter; unify with matcher
+
+	advance, token, err := bds.split.Split(buf, mp.buf.Err() == io.EOF)
+	if err == nil {
 		if advance < 0 {
-			return bufio.ErrNegativeAdvance
-		} else if advance > len(buf)-off {
-			return bufio.ErrAdvanceTooFar
-		}
-		off += advance
-
-		if token == nil {
-			return nil
-		}
-
-		if advance > 0 {
-			empties = 0
-		} else {
-			// Returning tokens not advancing input at EOF.
-			if empties++; empties > maxConsecutiveEmptyReads {
-				return errTooManyEmpties
-			}
-		}
-
-		if err := bds.next.Process(token, true); err != nil {
-			return err
+			err = bufio.ErrNegativeAdvance
+		} else if advance > len(buf) {
+			err = bufio.ErrAdvanceTooFar
 		}
 	}
-	return nil
+	if err != nil || token == nil {
+		return err
+	}
+
+	// XXX hack to extract the offset of token in buf without resorting
+	// to pointer math, or modifying the split contract; fix in splitter
+	// unification
+	start := cap(buf) - cap(token)
+	end := start + len(token)
+	return mp.pushLoc(start, end, advance)
 }
 
 func (y between) String() string {
@@ -170,7 +164,7 @@ func (bb betweenBalanced) String() string { return fmt.Sprintf("y%s%v", string(b
 func (bdr betweenDelimRe) String() string {
 	return fmt.Sprintf("y%v%v", regexpString(bdr.pat), bdr.next)
 }
-func (bds betweenDelimSplit) String() string { return fmt.Sprintf("y%v%v", bds.split, bds.next) }
+func (bds betweenDelimSplit) String() string { return fmt.Sprintf("y%v", bds.split) }
 
 func (ls lineSplitter) String() string        { return fmt.Sprintf("%q", strings.Repeat("\n", int(ls))) }
 func (bs byteSplitter) String() string        { return fmt.Sprintf("%q", string(bs)) }
