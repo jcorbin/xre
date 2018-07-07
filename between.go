@@ -57,10 +57,6 @@ type between struct {
 }
 
 func (y between) Create(nc command, env environment) (processor, error) {
-	if y.open == 0 && y.pat == nil && y.delim == "" {
-		return nil, errors.New("empty y command")
-	}
-
 	next, err := createProcessor(nc, env)
 	if err != nil {
 		return nil, err
@@ -69,23 +65,24 @@ func (y between) Create(nc command, env environment) (processor, error) {
 	if y.open != 0 {
 		return betweenBalanced{y.open, y.close, next}, nil
 	}
-
 	if y.pat != nil {
 		return betweenDelimRe{y.pat, next}, nil
 	}
-
-	bds := betweenDelimSplit{next: next}
+	if y.delim == "" {
+		return nil, errors.New("empty y command")
+	}
+	var split splitter
 	if allNewlines(y.delim) && y.cutset == "" {
-		bds.split = lineSplitter(len(y.delim))
+		split = lineSplitter(len(y.delim))
 	} else if len(y.delim) == 1 {
-		bds.split = byteSplitter(y.delim[0])
+		split = byteSplitter(y.delim[0])
 	} else {
-		bds.split = bytesSplitter(y.delim)
+		split = bytesSplitter(y.delim)
 	}
 	if y.cutset != "" {
-		bds.split = trimmedSplitter(bds.split, y.cutset)
+		split = trimmedSplitter(split, y.cutset)
 	}
-	return bds, nil
+	return betweenDelimSplit{split, next}, nil
 }
 
 type betweenDelimRe struct {
@@ -168,15 +165,12 @@ func (y between) String() string {
 	}
 	return "y"
 }
-func (bb betweenBalanced) String() string {
-	return fmt.Sprintf("y%s%v", string(bb.open), bb.next)
-}
+
+func (bb betweenBalanced) String() string { return fmt.Sprintf("y%s%v", string(bb.open), bb.next) }
 func (bdr betweenDelimRe) String() string {
 	return fmt.Sprintf("y%v%v", regexpString(bdr.pat), bdr.next)
 }
-func (bds betweenDelimSplit) String() string {
-	return fmt.Sprintf("y%v%v", bds.split, bds.next)
-}
+func (bds betweenDelimSplit) String() string { return fmt.Sprintf("y%v%v", bds.split, bds.next) }
 
 func (ls lineSplitter) String() string        { return fmt.Sprintf("%q", strings.Repeat("\n", int(ls))) }
 func (bs byteSplitter) String() string        { return fmt.Sprintf("%q", string(bs)) }

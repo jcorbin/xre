@@ -37,10 +37,6 @@ type extract struct {
 }
 
 func (x extract) Create(nc command, env environment) (processor, error) {
-	if x.open == 0 && x.pat == nil {
-		return nil, errors.New("empty x command")
-	}
-
 	next, err := createProcessor(nc, env)
 	if err != nil {
 		return nil, err
@@ -49,7 +45,9 @@ func (x extract) Create(nc command, env environment) (processor, error) {
 	if x.open != 0 {
 		return extractBalanced{x.open, x.close, next}, nil
 	}
-
+	if x.pat == nil {
+		return nil, errors.New("empty x command")
+	}
 	switch n := x.pat.NumSubexp(); n {
 	case 0:
 		return extractRe{x.pat, next}, nil
@@ -109,12 +107,7 @@ func (x extract) String() string {
 	}
 	return "x"
 }
-func (er extractRe) String() string {
-	return fmt.Sprintf("x%v%v", regexpString(er.pat), er.next)
-}
-func (ers extractReSub) String() string {
-	return fmt.Sprintf("x%v%v", regexpString(ers.pat), ers.next)
-}
-func (eb extractBalanced) String() string {
-	return fmt.Sprintf("x%s%s%v", string(eb.open), string(eb.close), eb.next)
-}
+
+func (eb extractBalanced) String() string { return fmt.Sprintf("x%s%v", string(eb.open), eb.next) }
+func (er extractRe) String() string       { return fmt.Sprintf("x%v%v", regexpString(er.pat), er.next) }
+func (ers extractReSub) String() string   { return fmt.Sprintf("x%v%v", regexpString(ers.pat), ers.next) }
