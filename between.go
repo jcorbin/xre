@@ -66,9 +66,6 @@ func (y between) Create(nc command, env environment) (processor, error) {
 	if y.open != 0 {
 		return betweenBalanced{y.open, y.close, next}, nil
 	}
-	if y.pat != nil {
-		return betweenDelimRe{y.pat, next}, nil
-	}
 	m, err := y.createMatcher(env)
 	if err != nil {
 		return nil, err
@@ -77,6 +74,9 @@ func (y between) Create(nc command, env environment) (processor, error) {
 }
 
 func (y between) createMatcher(env environment) (matcher, error) {
+	if y.pat != nil {
+		return betweenDelimRe{y.pat}, nil
+	}
 	if y.delim == "" {
 		return nil, errors.New("empty y command")
 	}
@@ -94,29 +94,19 @@ func (y between) createMatcher(env environment) (matcher, error) {
 	return betweenDelimSplit{split}, nil
 }
 
-type betweenDelimRe struct {
-	pat  *regexp.Regexp
-	next processor
-}
-
+type betweenDelimRe struct{ pat *regexp.Regexp }
 type betweenDelimSplit struct{ split splitter }
 
 type splitter interface {
 	Split(data []byte, atEOF bool) (advance int, token []byte, err error)
 }
 
-func (bdr betweenDelimRe) Process(buf []byte, last bool) error {
-	// TODO inclusive variant?
-	for off := 0; off < len(buf); {
-		loc := bdr.pat.FindIndex(buf[off:])
-		if loc == nil {
-			return bdr.next.Process(buf[off:], true)
-		}
-		m := buf[off : off+loc[0]] // extracted match
-		off += loc[1]
-		if err := bdr.next.Process(m, false); err != nil {
-			return err
-		}
+func (bdr betweenDelimRe) match(mp *matchProcessor, buf []byte) error {
+	if loc := bdr.pat.FindIndex(buf); loc != nil {
+		return mp.pushLoc(0, loc[0], loc[1])
+	}
+	if mp.buf.Err() == io.EOF {
+		return mp.flushTrailer()
 	}
 	return nil
 }
@@ -160,10 +150,8 @@ func (y between) String() string {
 	return "y"
 }
 
-func (bb betweenBalanced) String() string { return fmt.Sprintf("y%s%v", string(bb.open), bb.next) }
-func (bdr betweenDelimRe) String() string {
-	return fmt.Sprintf("y%v%v", regexpString(bdr.pat), bdr.next)
-}
+func (bb betweenBalanced) String() string    { return fmt.Sprintf("y%s%v", string(bb.open), bb.next) }
+func (bdr betweenDelimRe) String() string    { return fmt.Sprintf("y%v", regexpString(bdr.pat)) }
 func (bds betweenDelimSplit) String() string { return fmt.Sprintf("y%v", bds.split) }
 
 func (ls lineSplitter) String() string        { return fmt.Sprintf("%q", strings.Repeat("\n", int(ls))) }
