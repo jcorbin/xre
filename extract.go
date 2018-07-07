@@ -70,16 +70,6 @@ func (ers extractReSub) match(mp *matchProcessor, buf []byte) error {
 	return nil
 }
 
-func (x extract) String() string {
-	if x.pat != nil {
-		return fmt.Sprintf("x%v", regexpString(x.pat))
-	}
-	if x.open != 0 {
-		return fmt.Sprintf("x%s", string(x.open))
-	}
-	return "x"
-}
-
 func (eb extractBalanced) String() string { return fmt.Sprintf("x%s", string(eb.open)) }
 func (er extractRe) String() string       { return fmt.Sprintf("x%v", regexpString(er.pat)) }
 func (ers extractReSub) String() string   { return fmt.Sprintf("x%v", regexpString(ers.pat)) }

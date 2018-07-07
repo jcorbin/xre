@@ -121,22 +121,6 @@ func (bds betweenDelimSplit) match(mp *matchProcessor, buf []byte) error {
 	return mp.pushLoc(start, end, advance)
 }
 
-func (y between) String() string {
-	if y.pat != nil {
-		return fmt.Sprintf("y%v", regexpString(y.pat))
-	}
-	if y.delim != "" {
-		if y.cutset != "" {
-			return fmt.Sprintf(`y%q~%q`, y.delim, y.cutset)
-		}
-		return fmt.Sprintf(`y%q`, y.delim)
-	}
-	if y.open != 0 {
-		return fmt.Sprintf("y%s", string(y.open))
-	}
-	return "y"
-}
-
 func (bb betweenBalanced) String() string    { return fmt.Sprintf("y%s", string(bb.open)) }
 func (bdr betweenDelimRe) String() string    { return fmt.Sprintf("y%v", regexpString(bdr.pat)) }
 func (bds betweenDelimSplit) String() string { return fmt.Sprintf("y%v", bds.split) }
