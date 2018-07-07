@@ -19,7 +19,7 @@ type readBuf struct {
 	err error
 }
 
-// ProcessFrom is a convenience for implementing io.ReaderFrom for a processor:
+// ProcessFrom is a convenience for implementing processorIO:
 // - it reads from the wrapped io.Reader until an error occurs (either a read
 //   error, or a processing error returned by the handle function). The given
 //   handle function is called once after every successful read.
@@ -49,6 +49,18 @@ func (rb *readBuf) ProcessFrom(r io.Reader, handle func(buf *readBuf) error) (n 
 			return n, err
 		}
 	}
+}
+
+// ProcessIn is a convenience for implementing a processor by re-using the same
+// code used to implement processorIO via readBuf.ProcessFrom.
+func (rb *readBuf) ProcessIn(buf []byte, handle func(buf *readBuf) error) error {
+	old := rb.buf[:0]
+	rb.buf = buf
+	rb.off = 0
+	rb.err = io.EOF
+	err := handle(rb)
+	rb.buf = old
+	return err
 }
 
 func (rb *readBuf) Err() error    { return rb.err }
