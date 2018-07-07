@@ -41,10 +41,6 @@ func (x extract) Create(nc command, env environment) (processor, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	if x.open != 0 {
-		return extractBalanced{x.open, x.close, next}, nil
-	}
 	m, err := x.createMatcher(env)
 	if err != nil {
 		return nil, err
@@ -53,6 +49,9 @@ func (x extract) Create(nc command, env environment) (processor, error) {
 }
 
 func (x extract) createMatcher(env environment) (matcher, error) {
+	if x.open != 0 {
+		return extractBalanced{x.open, x.close}, nil
+	}
 	if x.pat == nil {
 		return nil, errors.New("empty x command")
 	}
@@ -93,6 +92,6 @@ func (x extract) String() string {
 	return "x"
 }
 
-func (eb extractBalanced) String() string { return fmt.Sprintf("x%s%v", string(eb.open), eb.next) }
+func (eb extractBalanced) String() string { return fmt.Sprintf("x%s", string(eb.open)) }
 func (er extractRe) String() string       { return fmt.Sprintf("x%v", regexpString(er.pat)) }
 func (ers extractReSub) String() string   { return fmt.Sprintf("x%v", regexpString(ers.pat)) }

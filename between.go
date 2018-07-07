@@ -62,10 +62,6 @@ func (y between) Create(nc command, env environment) (processor, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	if y.open != 0 {
-		return betweenBalanced{y.open, y.close, next}, nil
-	}
 	m, err := y.createMatcher(env)
 	if err != nil {
 		return nil, err
@@ -74,6 +70,9 @@ func (y between) Create(nc command, env environment) (processor, error) {
 }
 
 func (y between) createMatcher(env environment) (matcher, error) {
+	if y.open != 0 {
+		return betweenBalanced{y.open, y.close}, nil
+	}
 	if y.pat != nil {
 		return betweenDelimRe{y.pat}, nil
 	}
@@ -150,7 +149,7 @@ func (y between) String() string {
 	return "y"
 }
 
-func (bb betweenBalanced) String() string    { return fmt.Sprintf("y%s%v", string(bb.open), bb.next) }
+func (bb betweenBalanced) String() string    { return fmt.Sprintf("y%s", string(bb.open)) }
 func (bdr betweenDelimRe) String() string    { return fmt.Sprintf("y%v", regexpString(bdr.pat)) }
 func (bds betweenDelimSplit) String() string { return fmt.Sprintf("y%v", bds.split) }
 

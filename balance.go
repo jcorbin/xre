@@ -7,42 +7,21 @@ var balancedOpens = map[byte]byte{
 	'<': '>',
 }
 
-type betweenBalanced struct {
-	open, close byte
-	next        processor
-}
+type betweenBalanced struct{ open, close byte }
+type extractBalanced betweenBalanced
 
-type extractBalanced struct {
-	open, close byte
-	next        processor
-}
-
-func (bb betweenBalanced) Process(buf []byte, last bool) error {
-	for {
-		if len(buf) == 0 {
-			return nil
-		}
-		if loc, found := scanBalanced(bb.open, bb.close, buf); found {
-			if err := bb.next.Process(buf[loc[0]+1:loc[1]-1], false); err != nil {
-				return err
-			}
-			buf = buf[loc[1]:]
-		}
+func (bb betweenBalanced) match(mp *matchProcessor, buf []byte) error {
+	if loc, found := scanBalanced(bb.open, bb.close, buf); found {
+		return mp.pushLoc(loc[0]+1, loc[1]-1, loc[1])
 	}
+	return nil
 }
 
-func (eb extractBalanced) Process(buf []byte, last bool) error {
-	for {
-		if len(buf) == 0 {
-			return nil
-		}
-		if loc, found := scanBalanced(eb.open, eb.close, buf); found {
-			if err := eb.next.Process(buf[loc[0]:loc[1]], false); err != nil {
-				return err
-			}
-			buf = buf[loc[1]:]
-		}
+func (eb extractBalanced) match(mp *matchProcessor, buf []byte) error {
+	if loc, found := scanBalanced(eb.open, eb.close, buf); found {
+		return mp.pushLoc(loc[0], loc[1], loc[1])
 	}
+	return nil
 }
 
 func scanBalanced(open, close byte, buf []byte) ([2]int, bool) {
