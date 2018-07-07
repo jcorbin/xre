@@ -47,7 +47,7 @@ func scanY(s string) (command, string, error) {
 	default:
 		return nil, s, fmt.Errorf("unrecognized y command")
 	}
-	return y, s, nil
+	return matcherCmd(y), s, nil
 }
 
 type between struct {
@@ -55,18 +55,6 @@ type between struct {
 	pat           *regexp.Regexp
 	delim, cutset string
 	open, close   byte
-}
-
-func (y between) Create(nc command, env environment) (processor, error) {
-	next, err := createProcessor(nc, env)
-	if err != nil {
-		return nil, err
-	}
-	m, err := y.createMatcher(env)
-	if err != nil {
-		return nil, err
-	}
-	return createMatcherCommand(m, next, env)
 }
 
 func (y between) createMatcher(env environment) (matcher, error) {

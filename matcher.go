@@ -5,10 +5,20 @@ import (
 	"io"
 )
 
+func matcherCmd(c matchCreator) command { return matcherCommand{c} }
+
 type matcher interface {
 	// TODO consider revoking access to matchProcessor, or
 	// hiding behind a minimal interface
 	match(mp *matchProcessor, buf []byte) error
+}
+
+type matchCreator interface {
+	createMatcher(environment) (matcher, error)
+}
+
+type matcherCommand struct {
+	matchCreator
 }
 
 type matchProcessor struct {
@@ -20,10 +30,28 @@ type matchProcessor struct {
 	next     processor
 }
 
-func createMatcherCommand(m matcher, next processor, env environment) (_ processor, err error) {
+func (mc matcherCommand) String() string {
+	if sr, ok := mc.matchCreator.(fmt.Stringer); ok {
+		return sr.String()
+	}
+	if ma, err := mc.createMatcher(nullEnv); err == nil {
+		if sr, ok := ma.(fmt.Stringer); ok {
+			return sr.String()
+		}
+	}
+	return fmt.Sprint(mc.matchCreator)
+}
+
+func (mc matcherCommand) Create(nc command, env environment) (_ processor, err error) {
 	var mp matchProcessor
-	mp.matcher = m
-	mp.next = next
+	mp.matcher, err = mc.createMatcher(env)
+	if err != nil {
+		return nil, err
+	}
+	mp.next, err = createProcessor(nc, env)
+	if err != nil {
+		return nil, err
+	}
 	return &mp, nil
 }
 

@@ -28,24 +28,12 @@ func scanX(s string) (command, string, error) {
 	default:
 		return nil, s, fmt.Errorf("unrecognized x command")
 	}
-	return x, s, nil
+	return matcherCmd(x), s, nil
 }
 
 type extract struct {
 	pat         *regexp.Regexp
 	open, close byte
-}
-
-func (x extract) Create(nc command, env environment) (processor, error) {
-	next, err := createProcessor(nc, env)
-	if err != nil {
-		return nil, err
-	}
-	m, err := x.createMatcher(env)
-	if err != nil {
-		return nil, err
-	}
-	return createMatcherCommand(m, next, env)
 }
 
 func (x extract) createMatcher(env environment) (matcher, error) {
