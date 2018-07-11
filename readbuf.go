@@ -39,13 +39,14 @@ func (rb *readBuf) ProcessFrom(r io.Reader, handle func(buf *readBuf) error) (n 
 		var m int
 		m, rb.err = rb.readMore(r)
 		n += int64(m)
-		if rb.err == io.EOF {
-			return n, handle(rb)
-		} else if rb.err != nil {
-			handle(rb)
-			return n, rb.err
+		done, err := false, rb.err
+		if err == io.EOF {
+			done, err = true, nil
 		}
-		if err := handle(rb); err != nil {
+		if herr := handle(rb); err == nil {
+			err = herr
+		}
+		if done || err != nil {
 			return n, err
 		}
 	}
