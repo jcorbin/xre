@@ -18,8 +18,6 @@ car
 `)
 
 func Test_filter(t *testing.T) {
-	// TODO leverage line-oriented defaults once available
-
 	cmdTestCases{
 		{name: "finding cats",
 			cmd: `y/\n/ g/cat/ p"\n"`,
@@ -44,6 +42,31 @@ func Test_filter(t *testing.T) {
 			cab
 			truck
 			car
+			`),
+		},
+
+		{
+			name: "line-oriented g/re/p default",
+			cmd:  `g/cat/`,
+			proc: `y"\n" g/cat/ p"\n"`,
+			in: stripBlockSpace(`
+			rubrification
+			significator
+			sibby
+			corregidor
+			polecat
+			seagoing
+			catchcry
+			abrasiometer
+			educated
+			affuse
+			`),
+			out: stripBlockSpace(`
+			rubrification
+			significator
+			polecat
+			catchcry
+			educated
 			`),
 		},
 	}.run(t)
