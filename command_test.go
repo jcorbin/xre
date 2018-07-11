@@ -1,4 +1,4 @@
-package main
+package xre
 
 import (
 	"bytes"
@@ -11,7 +11,7 @@ import (
 )
 
 type testEnv struct {
-	bufEnv
+	BufEnv
 }
 
 func (te *testEnv) runTest(t *testing.T, cmdStr string, in, expected []byte) {
@@ -20,19 +20,19 @@ func (te *testEnv) runTest(t *testing.T, cmdStr string, in, expected []byte) {
 	defer func(prior int) { minRead = prior }(minRead)
 	minRead = 1
 
-	cmd, err := parseCommand(cmdStr)
+	cmd, err := ParseCommand(cmdStr)
 	if !assert.NoError(t, err, "couldn't parse command %q", cmdStr) {
 		return
 	}
 
 	assert.Equal(t, cmdStr, fmt.Sprint(cmd), "expected command string to round-trip")
 
-	te.buf.Reset()
+	te.DefaultOutput.Reset()
 	r := bytes.NewReader(in)
-	if !assert.NoError(t, runCommand(cmd, r, te), "command failed") {
+	if !assert.NoError(t, RunCommand(cmd, r, te), "command failed") {
 		return
 	}
-	assert.Equal(t, expected, te.buf.Bytes(), "expected command output")
+	assert.Equal(t, expected, te.DefaultOutput.Bytes(), "expected command output")
 }
 
 type cmdTestCase struct {

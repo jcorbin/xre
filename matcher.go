@@ -1,11 +1,11 @@
-package main
+package xre
 
 import (
 	"fmt"
 	"io"
 )
 
-func matcherCmd(c matchCreator) command { return matcherCommand{c} }
+func matcherCmd(c matchCreator) Command { return matcherCommand{c} }
 
 type matcher interface {
 	// TODO consider revoking access to matchProcessor, or
@@ -14,7 +14,7 @@ type matcher interface {
 }
 
 type matchCreator interface {
-	createMatcher(environment) (matcher, error)
+	createMatcher(Environment) (matcher, error)
 }
 
 type matcherCommand struct {
@@ -27,14 +27,14 @@ type matchProcessor struct {
 	flushed  bool
 	pendLoc  bool
 	priorLoc [3]int
-	next     processor
+	next     Processor
 }
 
 func (mc matcherCommand) String() string {
 	if sr, ok := mc.matchCreator.(fmt.Stringer); ok {
 		return sr.String()
 	}
-	if ma, err := mc.createMatcher(nullEnv); err == nil {
+	if ma, err := mc.createMatcher(NullEnv); err == nil {
 		if sr, ok := ma.(fmt.Stringer); ok {
 			return sr.String()
 		}
@@ -42,7 +42,7 @@ func (mc matcherCommand) String() string {
 	return fmt.Sprint(mc.matchCreator)
 }
 
-func (mc matcherCommand) Create(nc command, env environment) (_ processor, err error) {
+func (mc matcherCommand) Create(nc Command, env Environment) (_ Processor, err error) {
 	var mp matchProcessor
 	mp.matcher, err = mc.createMatcher(env)
 	if err != nil {

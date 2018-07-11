@@ -1,4 +1,4 @@
-package main
+package xre
 
 import (
 	"bufio"
@@ -11,7 +11,7 @@ import (
 
 var errTooManyEmpties = errors.New("too many empty tokens without progressing")
 
-func scanY(s string) (command, string, error) {
+func scanY(s string) (Command, string, error) {
 	if len(s) == 0 {
 		// TODO could default to line-delimiting (aka as if y"\n" was given)
 		return nil, s, fmt.Errorf("empty y command")
@@ -57,7 +57,7 @@ type between struct {
 	open, close   byte
 }
 
-func (y between) createMatcher(env environment) (matcher, error) {
+func (y between) createMatcher(env Environment) (matcher, error) {
 	if y.open != 0 {
 		return betweenBalanced{y.open, y.close}, nil
 	}

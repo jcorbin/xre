@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/jcorbin/xre"
 	"github.com/jcorbin/xre/internal/cmdutil"
 )
 
@@ -17,11 +18,9 @@ func main() {
 	}
 }
 
-var mainEnv = fileEnv{
-	deff: os.Stdout, // TODO support redirection
-}
-
 func run() error {
+	mainEnv := xre.Stdenv // TODO support redirection
+
 	flag.Parse()
 
 	// TODO SIGPIPE handler
@@ -31,7 +30,8 @@ func run() error {
 		// TODO default to just print? (i.e. degenerate to cat?)
 		return errors.New("no command(s) given")
 	}
-	cmd, err := parseCommand(args[0])
+
+	cmd, err := xre.ParseCommand(args[0])
 	if err != nil {
 		return err
 	}
@@ -42,6 +42,6 @@ func run() error {
 	}
 
 	return cmdutil.WithProf(func() error {
-		return runCommand(cmd, os.Stdin, &mainEnv)
+		return xre.RunCommand(cmd, os.Stdin, &mainEnv)
 	})
 }

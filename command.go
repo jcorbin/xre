@@ -1,4 +1,4 @@
-package main
+package xre
 
 import (
 	"bytes"
@@ -12,7 +12,7 @@ import (
 
 var errNoSep = errors.New("missing separator")
 
-type scanner func(string) (command, string, error)
+type scanner func(string) (Command, string, error)
 
 var commands = map[byte]scanner{
 	'x': scanX,
@@ -22,7 +22,15 @@ var commands = map[byte]scanner{
 	'p': scanP,
 }
 
-func parseCommand(s string) (command, error) {
+// Command represents a piece of potential XRE processing which; combining it
+// with an Environment realizes said potential, resulting in a Processor.
+type Command interface {
+	Create(next Command, env Environment) (Processor, error)
+}
+
+// ParseCommand parses an XRE command from the given string, returning any
+// parse error if the string is invalid.
+func ParseCommand(s string) (Command, error) {
 	cmd, s, err := scanCommand(s)
 	if err != nil {
 		return nil, err
@@ -33,7 +41,7 @@ func parseCommand(s string) (command, error) {
 	return cmd, nil
 }
 
-func scanCommand(s string) (command, string, error) {
+func scanCommand(s string) (Command, string, error) {
 	cmd := chain(nil, nil)
 	for len(s) > 0 {
 		switch s[0] {
@@ -54,7 +62,7 @@ func scanCommand(s string) (command, string, error) {
 	return cmd, s, nil
 }
 
-func scanCommandAtom(s string) (command, string, error) {
+func scanCommandAtom(s string) (Command, string, error) {
 	if s == "" {
 		return nil, s, errors.New("missing command at end of input")
 	}
@@ -65,14 +73,14 @@ func scanCommandAtom(s string) (command, string, error) {
 	return scan(s[1:])
 }
 
-func createProcessor(cmd command, env environment) (processor, error) {
+func createProcessor(cmd Command, env Environment) (Processor, error) {
 	if cmd == nil {
 		return env.Default(), nil
 	}
 	return cmd.Create(nil, env)
 }
 
-func createProcessorIO(cmd command, env environment) (processorIO, error) {
+func createProcessorIO(cmd Command, env Environment) (processorIO, error) {
 	proc, err := createProcessor(cmd, env)
 	if err != nil {
 		return nil, err
@@ -81,10 +89,12 @@ func createProcessorIO(cmd command, env environment) (processorIO, error) {
 		return procio, nil
 	}
 	// TODO scrap this adaptor, it's insane
-	return procIOAdaptor{processor: proc}, nil
+	return procIOAdaptor{Processor: proc}, nil
 }
 
-func runCommand(cmd command, r io.Reader, env environment) error {
+// RunCommand runs the given command, processing all bytes available, unless an
+// error occurs (reading, processing, or writing); any such error is returned.
+func RunCommand(cmd Command, r io.Reader, env Environment) error {
 	procio, err := createProcessorIO(cmd, env)
 	if err == nil {
 		_, err = procio.ReadFrom(r)
@@ -93,7 +103,7 @@ func runCommand(cmd command, r io.Reader, env environment) error {
 }
 
 type procIOAdaptor struct {
-	processor
+	Processor
 	buf readBuf
 }
 
@@ -105,13 +115,9 @@ func (proc procIOAdaptor) ReadFrom(r io.Reader) (int64, error) {
 	})
 }
 
-type command interface {
-	Create(command, environment) (processor, error)
-}
+type commandChain []Command
 
-type commandChain []command
-
-func chain(a, b command) command {
+func chain(a, b Command) Command {
 	if a == nil && b == nil {
 		return commandChain(nil)
 	} else if a == nil {
@@ -138,7 +144,7 @@ func chain(a, b command) command {
 	return commandChain{a, b}
 }
 
-func (cc commandChain) Create(nc command, env environment) (processor, error) {
+func (cc commandChain) Create(nc Command, env Environment) (Processor, error) {
 	if len(cc) == 0 {
 		return createProcessor(nc, env)
 	}

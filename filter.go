@@ -1,4 +1,4 @@
-package main
+package xre
 
 import (
 	"errors"
@@ -6,7 +6,7 @@ import (
 	"regexp"
 )
 
-func scanG(s string) (command, string, error) {
+func scanG(s string) (Command, string, error) {
 	var g filter
 	var err error
 	g.pat, s, err = scanPat(s[0], s[1:])
@@ -16,7 +16,7 @@ func scanG(s string) (command, string, error) {
 	return g, s, nil
 }
 
-func scanV(s string) (command, string, error) {
+func scanV(s string) (Command, string, error) {
 	v := filter{negate: true}
 	var err error
 	v.pat, s, err = scanPat(s[0], s[1:])
@@ -31,7 +31,7 @@ type filter struct {
 	pat    *regexp.Regexp
 }
 
-func (g filter) Create(nc command, env environment) (processor, error) {
+func (g filter) Create(nc Command, env Environment) (Processor, error) {
 	if g.pat == nil {
 		if g.negate {
 			return nil, errors.New("empty v command")
@@ -52,12 +52,12 @@ func (g filter) Create(nc command, env environment) (processor, error) {
 
 type regexpFilter struct {
 	pat  *regexp.Regexp
-	next processor
+	next Processor
 }
 
 type regexpNegFilter struct {
 	pat  *regexp.Regexp
-	next processor
+	next Processor
 }
 
 func (fl regexpFilter) Process(buf []byte, last bool) error {

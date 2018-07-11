@@ -1,4 +1,4 @@
-package main
+package xre
 
 import (
 	"bytes"
@@ -7,7 +7,7 @@ import (
 	"io"
 )
 
-func scanP(s string) (command, string, error) {
+func scanP(s string) (Command, string, error) {
 	var p print
 	if len(s) == 0 {
 		return p, s, nil
@@ -42,7 +42,7 @@ type print struct {
 	// TODO destination control
 }
 
-func (p print) Create(nc command, env environment) (processor, error) {
+func (p print) Create(nc Command, env Environment) (Processor, error) {
 	next, err := createProcessor(nc, env)
 	if err != nil {
 		return nil, err
@@ -92,13 +92,13 @@ func (p print) Create(nc command, env environment) (processor, error) {
 type fmter struct {
 	fmt  string
 	tmp  bytes.Buffer
-	next processor
+	next Processor
 }
 
 type delimer struct {
 	delim []byte
 	tmp   bytes.Buffer
-	next  processor
+	next  Processor
 }
 
 type writer struct {

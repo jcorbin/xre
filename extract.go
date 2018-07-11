@@ -1,4 +1,4 @@
-package main
+package xre
 
 import (
 	"errors"
@@ -6,7 +6,7 @@ import (
 	"regexp"
 )
 
-func scanX(s string) (command, string, error) {
+func scanX(s string) (Command, string, error) {
 	if len(s) == 0 {
 		return nil, s, fmt.Errorf("empty x command")
 	}
@@ -36,7 +36,7 @@ type extract struct {
 	open, close byte
 }
 
-func (x extract) createMatcher(env environment) (matcher, error) {
+func (x extract) createMatcher(env Environment) (matcher, error) {
 	if x.open != 0 {
 		return extractBalanced{x.open, x.close}, nil
 	}

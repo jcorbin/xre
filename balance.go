@@ -1,4 +1,4 @@
-package main
+package xre
 
 var balancedOpens = map[byte]byte{
 	'[': ']',
