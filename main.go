@@ -7,6 +7,8 @@ import (
 	"flag"
 	"log"
 	"os"
+
+	"github.com/jcorbin/xre/internal/cmdutil"
 )
 
 func main() {
@@ -39,7 +41,7 @@ func run() error {
 		return errors.New("reading input from file argument(s) not implemented") // TODO
 	}
 
-	return withProf(func() error {
+	return cmdutil.WithProf(func() error {
 		return runCommand(cmd, os.Stdin, &mainEnv)
 	})
 }

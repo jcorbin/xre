@@ -1,4 +1,4 @@
-package main
+package cmdutil
 
 import (
 	"flag"
@@ -15,7 +15,10 @@ var (
 	profTraceFlag = flag.String("tracefile", "", "write execution trace to given file")
 )
 
-func withProf(fn func() error) (rerr error) {
+// WithProf runs the given function under whatever profiling the user has
+// selected via command line flags. Any error by the function, or profiling
+// error, is returned.
+func WithProf(fn func() error) (rerr error) {
 	var cpuFile, memFile, traceFile *os.File
 
 	defer func() {
