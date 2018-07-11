@@ -61,16 +61,22 @@ func (tc cmdTestCase) run(t *testing.T) {
 func stripBlockSpace(s string) []byte {
 	buf := bytes.NewBuffer(make([]byte, 0, len(s)))
 	lines := strings.Split(s, "\n")
-	i := 0
 	indent := ""
+	i := 0
 	for ; i < len(lines); i++ {
 		line := lines[i]
 		trimmed := strings.TrimLeftFunc(line, unicode.IsSpace)
+		if len(trimmed) == 0 {
+			continue
+		}
 		if d := len(line) - len(trimmed); d > 0 {
 			indent = line[:d]
-			buf.WriteString(trimmed)
-			break
+			line = trimmed
+			buf.WriteString(line)
+		} else {
+			buf.WriteString(line)
 		}
+		break
 	}
 	for i++; i < len(lines); i++ {
 		trimmed := strings.TrimPrefix(lines[i], indent)
