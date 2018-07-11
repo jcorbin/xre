@@ -7,7 +7,7 @@ import (
 )
 
 func scanG(s string) (command, string, error) {
-	var g gcommand
+	var g filter
 	var err error
 	g.pat, s, err = scanPat(s[0], s[1:])
 	if err != nil {
@@ -17,7 +17,7 @@ func scanG(s string) (command, string, error) {
 }
 
 func scanV(s string) (command, string, error) {
-	v := gcommand{negate: true}
+	v := filter{negate: true}
 	var err error
 	v.pat, s, err = scanPat(s[0], s[1:])
 	if err != nil {
@@ -26,12 +26,12 @@ func scanV(s string) (command, string, error) {
 	return v, s, nil
 }
 
-type gcommand struct {
+type filter struct {
 	negate bool
 	pat    *regexp.Regexp
 }
 
-func (g gcommand) Create(nc command, env environment) (processor, error) {
+func (g filter) Create(nc command, env environment) (processor, error) {
 	if g.pat == nil {
 		if g.negate {
 			return nil, errors.New("empty v command")
@@ -45,44 +45,44 @@ func (g gcommand) Create(nc command, env environment) (processor, error) {
 	}
 
 	if g.negate {
-		return filterNeg{g.pat, next}, nil
+		return regexpNegFilter{g.pat, next}, nil
 	}
-	return filter{g.pat, next}, nil
+	return regexpFilter{g.pat, next}, nil
 }
 
-type filter struct {
+type regexpFilter struct {
 	pat  *regexp.Regexp
 	next processor
 }
 
-type filterNeg struct {
+type regexpNegFilter struct {
 	pat  *regexp.Regexp
 	next processor
 }
 
-func (fl filter) Process(buf []byte, last bool) error {
+func (fl regexpFilter) Process(buf []byte, last bool) error {
 	if fl.pat.Match(buf) {
 		return fl.next.Process(buf, last)
 	}
 	return nil
 }
 
-func (fn filterNeg) Process(buf []byte, last bool) error {
+func (fn regexpNegFilter) Process(buf []byte, last bool) error {
 	if !fn.pat.Match(buf) {
 		return fn.next.Process(buf, last)
 	}
 	return nil
 }
 
-func (g gcommand) String() string {
+func (g filter) String() string {
 	if g.negate {
 		return fmt.Sprintf("v%v", regexpString(g.pat))
 	}
 	return fmt.Sprintf("g%v", regexpString(g.pat))
 }
-func (fl filter) String() string {
+func (fl regexpFilter) String() string {
 	return fmt.Sprintf("g%v%v", regexpString(fl.pat), fl.next)
 }
-func (fn filterNeg) String() string {
+func (fn regexpNegFilter) String() string {
 	return fmt.Sprintf("v%v%v", regexpString(fn.pat), fn.next)
 }
