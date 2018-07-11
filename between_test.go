@@ -1,15 +1,12 @@
 package main
 
-import (
-	"testing"
-)
+import "testing"
 
-func Test_betweenDelim(t *testing.T) {
+func Test_between(t *testing.T) {
 	cmdTestCases{
 		{
 			name: "line splitting",
 			cmd:  `y"\n" p%"%q\n"`,
-			// in: []byte("aee\nbee\tdee\ncee"),
 			in: stripBlockSpace(`
 			aee
 			bee	dee
