@@ -184,7 +184,10 @@ func (tc intTestCase) runInproc(t *testing.T) {
 			_ = opw.Close()
 			_ = epw.Close()
 		}()
-		err := xre.RunCommand(tc.xreCmd, &fe)
+		err := xre.RunCommand(tc.xreCmd, xre.DelimEnv{
+			Environment: &fe,
+			Delim:       "\n",
+		})
 		if err != nil {
 			_, _ = fmt.Fprintf(epw, "%v\n", err)
 		}

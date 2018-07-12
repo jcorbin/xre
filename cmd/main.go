@@ -20,7 +20,11 @@ func main() {
 
 var (
 	listIn  = false
-	mainEnv = xre.Stdenv // TODO support redirection
+	fileEnv = xre.Stdenv    // TODO support redirection
+	mainEnv = xre.DelimEnv{ // TODO flag wiring
+		Environment: &fileEnv,
+		Delim:       "\n",
+	}
 )
 
 func run() (rerr error) {
@@ -44,32 +48,32 @@ func run() (rerr error) {
 	}
 
 	return cmdutil.WithProf(func() error {
-		return xre.RunCommand(prog, &mainEnv)
+		return xre.RunCommand(prog, mainEnv)
 	})
 }
 
 func passArgfiles(args []string) {
 	if len(args) > 0 {
-		mainEnv.AddInput(os.Open(args[0]))
+		fileEnv.AddInput(os.Open(args[0]))
 		go func() {
-			defer mainEnv.CloseInputs()
+			defer fileEnv.CloseInputs()
 			for _, arg := range args[1:] {
-				mainEnv.AddInput(os.Open(arg))
+				fileEnv.AddInput(os.Open(arg))
 			}
 		}()
 	}
 }
 
 func scanInfiles(args []string) {
-	mainEnv.AddInput(nil, nil)
+	fileEnv.AddInput(nil, nil)
 	go func() {
-		defer mainEnv.CloseInputs()
+		defer fileEnv.CloseInputs()
 		if len(args) > 0 {
 			for _, arg := range args {
 				scanInfile(os.Open(arg))
 			}
 		} else {
-			scanInfile(mainEnv.DefaultInfile, nil)
+			scanInfile(fileEnv.DefaultInfile, nil)
 		}
 	}()
 }
@@ -78,12 +82,12 @@ func scanInfile(f *os.File, err error) {
 	if err == nil {
 		sc := bufio.NewScanner(f)
 		for sc.Scan() {
-			mainEnv.AddInput(os.Open(sc.Text()))
+			fileEnv.AddInput(os.Open(sc.Text()))
 		}
 		err = sc.Err()
 	}
-	mainEnv.AddInput(nil, err)
+	fileEnv.AddInput(nil, err)
 	if f != nil {
-		mainEnv.AddInput(nil, f.Close())
+		fileEnv.AddInput(nil, f.Close())
 	}
 }

@@ -132,7 +132,10 @@ func (tc cmdTestCase) runIn(te *testEnv, t *testing.T) {
 
 	assert.Equal(t, tc.cmd, fmt.Sprint(cmd), "expected command string to round-trip")
 
-	rf, err := xre.BuildReaderFrom(cmd, te)
+	rf, err := xre.BuildReaderFrom(cmd, xre.DelimEnv{
+		Environment: te,
+		Delim:       "\n",
+	})
 	require.NoError(t, err, "unexpected command build error")
 
 	if tc.proc != "" {
