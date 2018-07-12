@@ -54,3 +54,10 @@ type BufEnv struct {
 
 // Default returns a processor that will write to the DefaultOutput buffer.
 func (be *BufEnv) Default() Processor { return writer{&be.DefaultOutput} }
+
+// type assertions for fast failure
+var (
+	// _nullEnv doesn't need one, since it's only use is as an abstract singleton
+	_ Environment = &FileEnv{}
+	_ Environment = &BufEnv{}
+)
