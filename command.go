@@ -80,13 +80,13 @@ func createProcessor(cmd Command, env Environment) (Processor, error) {
 	return cmd.Create(nil, env)
 }
 
-func createProcessorIO(cmd Command, env Environment) (processorIO, error) {
+func buildCommandReader(cmd Command, env Environment) (io.ReaderFrom, error) {
 	proc, err := createProcessor(cmd, env)
 	if err != nil {
 		return nil, err
 	}
-	if procio, canio := proc.(processorIO); canio {
-		return procio, nil
+	if rf, canReadFrom := proc.(io.ReaderFrom); canReadFrom {
+		return rf, nil
 	}
 	// TODO scrap this adaptor, it's insane
 	return procIOAdaptor{Processor: proc}, nil
@@ -95,9 +95,9 @@ func createProcessorIO(cmd Command, env Environment) (processorIO, error) {
 // RunCommand runs the given command, processing all bytes available, unless an
 // error occurs (reading, processing, or writing); any such error is returned.
 func RunCommand(cmd Command, r io.Reader, env Environment) error {
-	procio, err := createProcessorIO(cmd, env)
+	rf, err := buildCommandReader(cmd, env)
 	if err == nil {
-		_, err = procio.ReadFrom(r)
+		_, err = rf.ReadFrom(r)
 	}
 	return err
 }

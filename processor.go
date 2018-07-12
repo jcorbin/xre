@@ -1,7 +1,5 @@
 package xre
 
-import "io"
-
 // Processor represents a piece of structure processing logic. Process gets
 // called for each piece of matched sub-structure within some level of
 // structure. The last flag indicates whether this is the last piece of
@@ -14,9 +12,4 @@ import "io"
 // provide default stream extraction semantics.
 type Processor interface {
 	Process(buf []byte, last bool) error
-}
-
-type processorIO interface {
-	Processor
-	io.ReaderFrom
 }
