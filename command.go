@@ -160,21 +160,12 @@ func BuildReaderFrom(cmd Command, env Environment) (io.ReaderFrom, error) {
 	if rf, canReadFrom := proc.(io.ReaderFrom); canReadFrom {
 		return rf, nil
 	}
-	// TODO scrap this adaptor, it's insane
-	return procIOAdaptor{Processor: proc}, nil
-}
-
-type procIOAdaptor struct {
-	Processor
-	buf readBuf
-}
-
-func (proc procIOAdaptor) ReadFrom(r io.Reader) (int64, error) {
-	return proc.buf.ProcessFrom(r, func(buf *readBuf) error {
-		err := proc.Process(buf.Bytes(), buf.Err() != nil)
-		buf.Advance(buf.Len())
-		return err
-	})
+	if drp, canProvideDefault := env.(EnvDefaultRead); canProvideDefault {
+		return drp.DefaultReader(proc), nil
+	}
+	return nil, fmt.Errorf(
+		"no default reader semantics available for command %v"+
+			"; specify toplevel match semantics", cmd)
 }
 
 type commandChain []Command

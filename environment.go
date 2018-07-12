@@ -25,6 +25,15 @@ type Input struct {
 	Err error
 }
 
+// EnvDefaultRead can be implemented by an environment to provide default
+// toplevel semantics; this allows processors (e.g. the g and v commands'
+// filter) to be used directly.
+type EnvDefaultRead interface {
+	Environment
+
+	DefaultReader(Processor) io.ReaderFrom
+}
+
 type _nullEnv struct{}
 
 // FileEnv is an Environment backed directly by files; there may be a default
