@@ -122,6 +122,28 @@ func (fe *FileEnv) Close() error {
 	return err
 }
 
+// DelimEnv is an Environment that adds a default notion of delimiting
+// semantics, e.g. unix-like line delimiting.
+type DelimEnv struct {
+	Environment
+	Delim string
+}
+
+// DefaultReader wraps the given Processor in a between delim processor,
+// providing default toplevel match extraction behavior.
+func (de DelimEnv) DefaultReader(proc Processor) io.ReaderFrom {
+	return betweenDelim(de.Delim, "").Create(proc).(io.ReaderFrom)
+}
+
+// Default wraps the wrapped-Environment's Default Processor with a
+// delim-printing Processor.
+//
+// NOTE the print Command will automatically drop this default delimiting if
+// the user specifies any, rather than adding to it.
+func (de DelimEnv) Default() Processor {
+	return delimWriter{delim: []byte(de.Delim)}.Create(de.Environment.Default())
+}
+
 // NullEnv is an Environment that discards all output, useful mainly for
 // examining processor structure separate from any real environment.
 var NullEnv Environment = _nullEnv{}
@@ -204,5 +226,6 @@ func (be *BufEnv) Close() error { return nil }
 var (
 	// _nullEnv doesn't need one, since it's only use is as an abstract singleton
 	_ Environment = &FileEnv{}
+	_ Environment = DelimEnv{}
 	_ Environment = &BufEnv{}
 )
