@@ -31,10 +31,21 @@ func (te *testEnv) runTest(t *testing.T, cmdStr string, in, expected []byte) {
 	rf, err := BuildReaderFrom(cmd, te)
 	require.NoError(t, err, "unexpected command build error")
 
-	te.DefaultOutput.Reset()
-	if _, err := rf.ReadFrom(bytes.NewReader(in)); assert.NoError(t, err, "command failed") {
-		assert.Equal(t, expected, te.DefaultOutput.Bytes(), "expected command output")
+	if proc, ok := rf.(Processor); ok {
+		t.Run("xre.Processor mode", func(t *testing.T) {
+			te.DefaultOutput.Reset()
+			if assert.NoError(t, proc.Process(in, true), "command failed") {
+				assert.Equal(t, expected, te.DefaultOutput.Bytes(), "expected command output")
+			}
+		})
 	}
+
+	t.Run("io.ReaderFrom mode", func(t *testing.T) {
+		te.DefaultOutput.Reset()
+		if _, err := rf.ReadFrom(bytes.NewReader(in)); assert.NoError(t, err, "command failed") {
+			assert.Equal(t, expected, te.DefaultOutput.Bytes(), "expected command output")
+		}
+	})
 }
 
 type cmdTestCase struct {
