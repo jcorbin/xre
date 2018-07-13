@@ -80,7 +80,16 @@ func createProcessor(cmd Command, env Environment) (Processor, error) {
 	return cmd.Create(nil, env)
 }
 
-func buildCommandReader(cmd Command, env Environment) (io.ReaderFrom, error) {
+// BuildReaderFrom builds a Command in an Environment. The returned
+// io.ReaderFrom will perform the processing specified by the command by
+// reading all bytes in a given io.Reader.
+//
+// Any error constructing the command's Processor is returned. Furthermore, if
+// the resulting Processor does not implement io.ReaderFrom, and the given
+// Environment doesn't provide any default reader semantics, then an error is
+// returned telling the user to specify match extraction semantics (e.g. line
+// delimiting by adding a `y/\n/` prefix to the command).
+func BuildReaderFrom(cmd Command, env Environment) (io.ReaderFrom, error) {
 	proc, err := createProcessor(cmd, env)
 	if err != nil {
 		return nil, err
@@ -95,7 +104,7 @@ func buildCommandReader(cmd Command, env Environment) (io.ReaderFrom, error) {
 // RunCommand runs the given command, processing all bytes available, unless an
 // error occurs (reading, processing, or writing); any such error is returned.
 func RunCommand(cmd Command, r io.Reader, env Environment) error {
-	rf, err := buildCommandReader(cmd, env)
+	rf, err := BuildReaderFrom(cmd, env)
 	if err == nil {
 		_, err = rf.ReadFrom(r)
 	}
