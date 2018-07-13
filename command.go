@@ -148,7 +148,7 @@ type commandChain []Command
 
 func chain(a, b Command) Command {
 	if a == nil && b == nil {
-		return commandChain(nil)
+		return nil
 	} else if a == nil {
 		return b
 	} else if b == nil {
@@ -183,7 +183,7 @@ func (cc commandChain) Create(nc Command, env Environment) (Processor, error) {
 		tail = append(tail, nc)
 	}
 	if len(tail) == 0 {
-		tail = nil
+		return head.Create(nil, env)
 	}
 	return head.Create(tail, env)
 }
