@@ -41,7 +41,13 @@ func run() error {
 		return errors.New("reading input from file argument(s) not implemented") // TODO
 	}
 
+	rf, err := xre.BuildReaderFrom(cmd, &mainEnv)
+	if err != nil {
+		return err
+	}
+
 	return cmdutil.WithProf(func() error {
-		return xre.RunCommand(cmd, os.Stdin, &mainEnv)
+		_, err = rf.ReadFrom(os.Stdin)
+		return err
 	})
 }
