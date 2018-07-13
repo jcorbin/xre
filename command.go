@@ -101,16 +101,6 @@ func BuildReaderFrom(cmd Command, env Environment) (io.ReaderFrom, error) {
 	return procIOAdaptor{Processor: proc}, nil
 }
 
-// RunCommand runs the given command, processing all bytes available, unless an
-// error occurs (reading, processing, or writing); any such error is returned.
-func RunCommand(cmd Command, r io.Reader, env Environment) error {
-	rf, err := BuildReaderFrom(cmd, env)
-	if err == nil {
-		_, err = rf.ReadFrom(r)
-	}
-	return err
-}
-
 type procIOAdaptor struct {
 	Processor
 	buf readBuf
