@@ -8,6 +8,7 @@ import (
 	"unicode"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type testEnv struct {
@@ -27,12 +28,13 @@ func (te *testEnv) runTest(t *testing.T, cmdStr string, in, expected []byte) {
 
 	assert.Equal(t, cmdStr, fmt.Sprint(cmd), "expected command string to round-trip")
 
+	rf, err := BuildReaderFrom(cmd, te)
+	require.NoError(t, err, "unexpected command build error")
+
 	te.DefaultOutput.Reset()
-	r := bytes.NewReader(in)
-	if !assert.NoError(t, RunCommand(cmd, r, te), "command failed") {
-		return
+	if _, err := rf.ReadFrom(bytes.NewReader(in)); assert.NoError(t, err, "command failed") {
+		assert.Equal(t, expected, te.DefaultOutput.Bytes(), "expected command output")
 	}
-	assert.Equal(t, expected, te.DefaultOutput.Bytes(), "expected command output")
 }
 
 type cmdTestCase struct {
