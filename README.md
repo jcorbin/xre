@@ -42,7 +42,7 @@ heap allocations involving a call to `bytes.makeSlice` (i.e. when a
 `bytes.Buffer` needs to grow):
 
 ```
-xre 'y"\n\n"' v/bytes.makeSlice/ 'y"\n"' 'v/^#|^$/' 'x[x/^\d: (\d+)/' 'p"\n"'
+xre 'y"\n\n" v/bytes.makeSlice/ y"\n" v/^#|^$/ x[x/^\d: (\d+)/ p"\n"'
 ```
 
 Breaking down the above command
