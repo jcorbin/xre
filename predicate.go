@@ -25,3 +25,8 @@ func (pp predicateProcessor) Process(buf []byte, last bool) error {
 	}
 	return nil
 }
+
+// TODO apply predicates to groups
+// - buffer each record
+// - until we know whether wanted
+// - then (start) sending records
