@@ -15,39 +15,6 @@ type testEnv struct {
 	BufEnv
 }
 
-func (te *testEnv) runTest(t *testing.T, cmdStr string, in, expected []byte) {
-	// set readBuf size as small as possible to provoke any bugs provoked by
-	// buffer advancing earlier.
-	defer func(prior int) { minRead = prior }(minRead)
-	minRead = 1
-
-	cmd, err := ParseCommand(cmdStr)
-	if !assert.NoError(t, err, "couldn't parse command %q", cmdStr) {
-		return
-	}
-
-	assert.Equal(t, cmdStr, fmt.Sprint(cmd), "expected command string to round-trip")
-
-	rf, err := BuildReaderFrom(cmd, te)
-	require.NoError(t, err, "unexpected command build error")
-
-	if proc, ok := rf.(Processor); ok {
-		t.Run("xre.Processor mode", func(t *testing.T) {
-			te.DefaultOutput.Reset()
-			if assert.NoError(t, proc.Process(in, true), "command failed") {
-				assert.Equal(t, expected, te.DefaultOutput.Bytes(), "expected command output")
-			}
-		})
-	}
-
-	t.Run("io.ReaderFrom mode", func(t *testing.T) {
-		te.DefaultOutput.Reset()
-		if _, err := rf.ReadFrom(bytes.NewReader(in)); assert.NoError(t, err, "command failed") {
-			assert.Equal(t, expected, te.DefaultOutput.Bytes(), "expected command output")
-		}
-	})
-}
-
 type cmdTestCase struct {
 	name string
 	cmd  string
@@ -61,14 +28,47 @@ func (tcs cmdTestCases) run(t *testing.T) {
 	var te testEnv
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			te.runTest(t, tc.cmd, tc.in, tc.out)
+			tc.runIn(&te, t)
 		})
 	}
 }
 
 func (tc cmdTestCase) run(t *testing.T) {
 	var te testEnv
-	te.runTest(t, tc.cmd, tc.in, tc.out)
+	tc.runIn(&te, t)
+}
+
+func (tc cmdTestCase) runIn(te *testEnv, t *testing.T) {
+	// set readBuf size as small as possible to provoke any bugs provoked by
+	// buffer advancing earlier.
+	defer func(prior int) { minRead = prior }(minRead)
+	minRead = 1
+
+	cmd, err := ParseCommand(tc.cmd)
+	if !assert.NoError(t, err, "couldn't parse command %q", tc.cmd) {
+		return
+	}
+
+	assert.Equal(t, tc.cmd, fmt.Sprint(cmd), "expected command string to round-trip")
+
+	rf, err := BuildReaderFrom(cmd, te)
+	require.NoError(t, err, "unexpected command build error")
+
+	if proc, ok := rf.(Processor); ok {
+		t.Run("xre.Processor mode", func(t *testing.T) {
+			te.DefaultOutput.Reset()
+			if assert.NoError(t, proc.Process(tc.in, true), "command failed") {
+				assert.Equal(t, tc.out, te.DefaultOutput.Bytes(), "expected command output")
+			}
+		})
+	}
+
+	t.Run("io.ReaderFrom mode", func(t *testing.T) {
+		te.DefaultOutput.Reset()
+		if _, err := rf.ReadFrom(bytes.NewReader(tc.in)); assert.NoError(t, err, "command failed") {
+			assert.Equal(t, tc.out, te.DefaultOutput.Bytes(), "expected command output")
+		}
+	})
 }
 
 func stripBlockSpace(s string) []byte {
