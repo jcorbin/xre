@@ -56,7 +56,7 @@ func (mc matcherCommand) Create(nc Command, env Environment) (_ Processor, err e
 }
 
 func (mp matchProcessor) String() string {
-	return fmt.Sprintf("%v%v", mp.matcher, mp.next)
+	return fmt.Sprintf("%v %v", mp.matcher, mp.next)
 }
 
 func (mp *matchProcessor) Process(buf []byte, last bool) error {

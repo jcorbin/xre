@@ -18,6 +18,7 @@ type testEnv struct {
 type cmdTestCase struct {
 	name string
 	cmd  string
+	proc string
 	in   []byte
 	out  []byte
 }
@@ -53,6 +54,12 @@ func (tc cmdTestCase) runIn(te *testEnv, t *testing.T) {
 
 	rf, err := BuildReaderFrom(cmd, te)
 	require.NoError(t, err, "unexpected command build error")
+
+	if tc.proc != "" {
+		assert.Equal(t, tc.proc, fmt.Sprint(rf), "expected built reader string")
+	} else {
+		assert.Equal(t, tc.cmd, fmt.Sprint(rf), "expected built reader string to round-trip")
+	}
 
 	if proc, ok := rf.(Processor); ok {
 		t.Run("xre.Processor mode", func(t *testing.T) {

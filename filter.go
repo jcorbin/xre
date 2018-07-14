@@ -81,8 +81,8 @@ func (g filter) String() string {
 	return fmt.Sprintf("g%v", regexpString(g.pat))
 }
 func (fl regexpFilter) String() string {
-	return fmt.Sprintf("g%v%v", regexpString(fl.pat), fl.next)
+	return fmt.Sprintf("g%v %v", regexpString(fl.pat), fl.next)
 }
 func (fn regexpNegFilter) String() string {
-	return fmt.Sprintf("v%v%v", regexpString(fn.pat), fn.next)
+	return fmt.Sprintf("v%v %v", regexpString(fn.pat), fn.next)
 }
