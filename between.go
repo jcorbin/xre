@@ -38,7 +38,7 @@ func scanY(s string) (Command, string, error) {
 			return nil, s, err
 		}
 		if len(s) > 3 && s[0] == '~' && s[1] == '"' {
-			y.cutset, s, err = scanString(c, s[1:])
+			y.cutset, s, err = scanString(c, s[2:])
 			if err != nil {
 				return nil, s, err
 			}
@@ -125,10 +125,12 @@ func (bb betweenBalanced) String() string    { return fmt.Sprintf("y%s", string(
 func (bdr betweenDelimRe) String() string    { return fmt.Sprintf("y%v", regexpString(bdr.pat)) }
 func (bds betweenDelimSplit) String() string { return fmt.Sprintf("y%v", bds.split) }
 
-func (ls lineSplitter) String() string        { return fmt.Sprintf("%q", strings.Repeat("\n", int(ls))) }
-func (bs byteSplitter) String() string        { return fmt.Sprintf("%q", string(bs)) }
-func (bss bytesSplitter) String() string      { return fmt.Sprintf("%q", []byte(bss)) }
-func (bst byteSplitTrimmer) String() string   { return fmt.Sprintf("%q~%q", bst.delim, bst.cutset) }
+func (ls lineSplitter) String() string   { return fmt.Sprintf("%q", strings.Repeat("\n", int(ls))) }
+func (bs byteSplitter) String() string   { return fmt.Sprintf("%q", string(bs)) }
+func (bss bytesSplitter) String() string { return fmt.Sprintf("%q", []byte(bss)) }
+func (bst byteSplitTrimmer) String() string {
+	return fmt.Sprintf("%q~%q", string(bst.delim), bst.cutset)
+}
 func (bsst bytesSplitTrimmer) String() string { return fmt.Sprintf("%q~%q", bsst.delim, bsst.cutset) }
 
 func allNewlines(delim string) bool {

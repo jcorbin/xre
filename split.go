@@ -83,7 +83,7 @@ func (bss bytesSplitter) Split(data []byte, atEOF bool) (advance int, token []by
 		return 0, nil, nil
 	}
 	if i := bytes.Index(data, bss); i >= 0 {
-		return i + 1, data[0:i], nil
+		return i + len(bss), data[0:i], nil
 	}
 	if atEOF {
 		return len(data), data, nil
@@ -96,10 +96,10 @@ func (bst byteSplitTrimmer) Split(data []byte, atEOF bool) (advance int, token [
 		return 0, nil, nil
 	}
 	if i := bytes.IndexByte(data, bst.delim); i >= 0 {
-		return i + 1, bytes.TrimRight(data[0:i], bst.cutset), nil
+		return i + 1, bytes.Trim(data[0:i], bst.cutset), nil
 	}
 	if atEOF {
-		return len(data), bytes.TrimRight(data, bst.cutset), nil
+		return len(data), bytes.Trim(data, bst.cutset), nil
 	}
 	return 0, nil, nil
 }
@@ -109,10 +109,10 @@ func (bsst bytesSplitTrimmer) Split(data []byte, atEOF bool) (advance int, token
 		return 0, nil, nil
 	}
 	if i := bytes.Index(data, bsst.delim); i >= 0 {
-		return i + 1, bytes.TrimRight(data[0:i], bsst.cutset), nil
+		return i + len(bsst.delim), bytes.Trim(data[0:i], bsst.cutset), nil
 	}
 	if atEOF {
-		return len(data), bytes.TrimRight(data, bsst.cutset), nil
+		return len(data), bytes.Trim(data, bsst.cutset), nil
 	}
 	return 0, nil, nil
 }
