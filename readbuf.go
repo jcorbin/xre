@@ -68,16 +68,9 @@ func (rb *readBuf) ProcessIn(buf []byte, handle func(buf *readBuf) error) error 
 
 func (rb *readBuf) Err() error    { return rb.err }
 func (rb *readBuf) Advance(n int) { rb.off += n }
-func (rb *readBuf) Next(n int) []byte {
-	off := rb.off + n
-	buf := rb.buf[rb.off:off]
-	rb.off = off
-	return buf
-}
 
 func (rb *readBuf) Bytes() []byte { return rb.buf[rb.off:] }
 func (rb *readBuf) Len() int      { return len(rb.buf) - rb.off }
-func (rb *readBuf) Cap() int      { return cap(rb.buf) }
 
 func (rb *readBuf) readMore(r io.Reader) (n int, err error) {
 	i := rb.grow(MinRead)
