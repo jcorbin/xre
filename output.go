@@ -69,24 +69,17 @@ func (p print) Create(nc Command, env Environment) (Processor, error) {
 		}
 		return delimWriter{delim, impl}, nil
 
-	case fmtWriter:
-		if p.fmt != "" {
-			return fmtWriter{p.fmt + impl.fmt, impl.writer}, nil
-		}
-		return fmtWriter{string(delim) + impl.fmt, impl.writer}, nil
-
 	case delimWriter:
 		if p.fmt != "" {
 			return fmtWriter{p.fmt + string(impl.delim), impl.writer}, nil
 		}
 		return delimWriter{append(delim, impl.delim...), impl.writer}, nil
-
-	default:
-		if p.fmt != "" {
-			return &fmter{fmt: p.fmt, next: next}, nil
-		}
-		return &delimer{delim: delim, next: next}, nil
 	}
+
+	if p.fmt != "" {
+		return &fmter{fmt: p.fmt, next: next}, nil
+	}
+	return &delimer{delim: delim, next: next}, nil
 }
 
 type fmter struct {
@@ -172,8 +165,8 @@ func (p print) String() string {
 	}
 	return "p"
 }
-func (fr fmter) String() string       { return fmt.Sprintf("p%%%q%v", fr.fmt, fr.next) }
-func (dr delimer) String() string     { return fmt.Sprintf("p%q%v", dr.delim, dr.next) }
+func (fr fmter) String() string       { return fmt.Sprintf("p%%%q %v", fr.fmt, fr.next) }
+func (dr delimer) String() string     { return fmt.Sprintf("p%q %v", dr.delim, dr.next) }
 func (wr writer) String() string      { return "p" }
 func (fw fmtWriter) String() string   { return fmt.Sprintf("p%%%q", fw.fmt) }
 func (dw delimWriter) String() string { return fmt.Sprintf("p%q", dw.delim) }
