@@ -1,4 +1,4 @@
-package xre
+package xre_test
 
 import (
 	"bytes"
@@ -7,12 +7,13 @@ import (
 	"testing"
 	"unicode"
 
+	"github.com/jcorbin/xre"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 type testEnv struct {
-	BufEnv
+	xre.BufEnv
 }
 
 type cmdTestCase struct {
@@ -42,17 +43,17 @@ func (tc cmdTestCase) run(t *testing.T) {
 func (tc cmdTestCase) runIn(te *testEnv, t *testing.T) {
 	// set readBuf size as small as possible to provoke any bugs provoked by
 	// buffer advancing earlier.
-	defer func(prior int) { minRead = prior }(minRead)
-	minRead = 1
+	defer func(prior int) { xre.MinRead = prior }(xre.MinRead)
+	xre.MinRead = 1
 
-	cmd, err := ParseCommand(tc.cmd)
+	cmd, err := xre.ParseCommand(tc.cmd)
 	if !assert.NoError(t, err, "couldn't parse command %q", tc.cmd) {
 		return
 	}
 
 	assert.Equal(t, tc.cmd, fmt.Sprint(cmd), "expected command string to round-trip")
 
-	rf, err := BuildReaderFrom(cmd, te)
+	rf, err := xre.BuildReaderFrom(cmd, te)
 	require.NoError(t, err, "unexpected command build error")
 
 	if tc.proc != "" {
@@ -61,7 +62,7 @@ func (tc cmdTestCase) runIn(te *testEnv, t *testing.T) {
 		assert.Equal(t, tc.cmd, fmt.Sprint(rf), "expected built reader string to round-trip")
 	}
 
-	if proc, ok := rf.(Processor); ok {
+	if proc, ok := rf.(xre.Processor); ok {
 		t.Run("xre.Processor mode", func(t *testing.T) {
 			te.DefaultOutput.Reset()
 			if assert.NoError(t, proc.Process(tc.in, true), "command failed") {

@@ -1,4 +1,4 @@
-package xre
+package xre_test
 
 import "testing"
 

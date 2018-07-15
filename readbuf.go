@@ -7,7 +7,9 @@ import (
 )
 
 var (
-	minRead = 64 * 1024 // TODO configurable buffer size
+	// MinRead is the minimum number of bytes to attempt to read in each call
+	// to io.Reader.
+	MinRead = 64 * 1024
 )
 
 var errNegativeRead = errors.New("readBuf: reader returned negative count from Read")
@@ -78,7 +80,7 @@ func (rb *readBuf) Len() int      { return len(rb.buf) - rb.off }
 func (rb *readBuf) Cap() int      { return cap(rb.buf) }
 
 func (rb *readBuf) readMore(r io.Reader) (n int, err error) {
-	i := rb.grow(minRead)
+	i := rb.grow(MinRead)
 	n, err = r.Read(rb.buf[i:cap(rb.buf)])
 	if n < 0 {
 		panic(errNegativeRead)
