@@ -58,6 +58,21 @@ func RunCommand(prog string, rcs <-chan io.ReadCloser, env Environment) (rerr er
 	return nil
 }
 
+// ProtoCommand implements Command around a ProtoProcessor; it's the simplest
+// form of command, useful when everything is resolvable at parse time.
+type ProtoCommand struct{ ProtoProcessor }
+
+func (pc ProtoCommand) String() string { return fmt.Sprint(pc.ProtoProcessor) }
+
+// Create the next command and then pass it directly to the ProtoProcessor.
+func (pc ProtoCommand) Create(nc Command, env Environment) (Processor, error) {
+	next, err := createProcessor(nc, env)
+	if err != nil {
+		return nil, err
+	}
+	return pc.ProtoProcessor.Create(next), nil
+}
+
 // ParseCommand parses an XRE command from the given string, returning any
 // parse error if the string is invalid.
 func ParseCommand(s string) (Command, error) {

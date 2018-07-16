@@ -8,87 +8,42 @@ import (
 )
 
 func scanP(s string) (Command, string, error) {
-	var p print
 	if len(s) == 0 {
-		return p, s, nil
+		return writer{}, s, nil
 	}
 	switch c := s[0]; c {
-
 	case '%':
 		if len(s) < 3 || s[1] != '"' {
 			return nil, s, errors.New("missing format string to p%")
 		}
-		var err error
-		p.fmt, s, err = scanString(s[1], s[2:])
+		fmt, s, err := scanString(s[1], s[2:])
 		if err != nil {
 			return nil, s, err
 		}
+		return ProtoCommand{printFormat(fmt)}, s, nil
 
 	case '"':
-		var err error
-		p.delim, s, err = scanString(s[0], s[1:])
+		delim, s, err := scanString(s[0], s[1:])
 		if err != nil {
 			return nil, s, err
 		}
+		return ProtoCommand{printDelim(delim)}, s, nil
 
 	default:
 		return nil, s, fmt.Errorf("unrecognized p command")
 	}
-	return p, s, nil
 }
 
-type print struct {
-	fmt, delim string
-	// TODO destination control
-}
+type printFormat string
+type printDelim string
 
-func (p print) Create(nc Command, env Environment) (Processor, error) {
-	next, err := createProcessor(nc, env)
-	if err != nil {
-		return nil, err
-	}
-
-	if p.fmt == "" && p.delim == "" {
-		return next, nil
-	}
-
-	// have either p.fmt or delim
-	var delim []byte
-	if p.delim != "" {
-		if p.fmt != "" {
-			p.fmt += p.delim
-		} else {
-			delim = []byte(p.delim)
-		}
-	}
-
-	switch impl := next.(type) {
-	case writer:
-		if p.fmt != "" {
-			return fmtWriter{p.fmt, impl}, nil
-		}
-		return delimWriter{delim, impl}, nil
-
-	case delimWriter:
-		if p.fmt != "" {
-			return fmtWriter{p.fmt + string(impl.delim), impl.writer}, nil
-		}
-		return delimWriter{append(delim, impl.delim...), impl.writer}, nil
-	}
-
-	if p.fmt != "" {
-		return &fmter{fmt: p.fmt, next: next}, nil
-	}
-	return &delimer{delim: delim, next: next}, nil
-}
-
-type fmter struct {
+type fmtProc struct {
 	fmt  string
 	tmp  bytes.Buffer
 	next Processor
 }
 
-type delimer struct {
+type delimProc struct {
 	delim []byte
 	tmp   bytes.Buffer
 	next  Processor
@@ -108,17 +63,42 @@ type delimWriter struct {
 	writer
 }
 
-func (fr *fmter) Process(buf []byte, last bool) error {
-	fr.tmp.Reset()
-	_, _ = fmt.Fprintf(&fr.tmp, fr.fmt, buf)
-	return fr.next.Process(fr.tmp.Bytes(), last)
+func (p printFormat) Create(next Processor) Processor {
+	switch impl := next.(type) {
+	case writer:
+		return fmtWriter{string(p), impl}
+	case delimWriter:
+		return fmtWriter{string(p) + string(impl.delim), impl.writer}
+	}
+	return &fmtProc{fmt: string(p), next: next}
 }
 
-func (dr *delimer) Process(buf []byte, last bool) error {
-	dr.tmp.Reset()
-	_, _ = dr.tmp.Write(buf)
-	_, _ = dr.tmp.Write(dr.delim)
-	return dr.next.Process(dr.tmp.Bytes(), last)
+func (p printDelim) Create(next Processor) Processor {
+	switch impl := next.(type) {
+	case writer:
+		return delimWriter{[]byte(p), impl}
+	case delimWriter:
+		return delimWriter{append([]byte(p), impl.delim...), impl.writer}
+	}
+	return &delimProc{delim: []byte(p), next: next}
+}
+
+func (wr writer) Create(nc Command, env Environment) (Processor, error) {
+	next, err := createProcessor(nc, env)
+	return next, err
+}
+
+func (fp *fmtProc) Process(buf []byte, last bool) error {
+	fp.tmp.Reset()
+	_, _ = fmt.Fprintf(&fp.tmp, fp.fmt, buf)
+	return fp.next.Process(fp.tmp.Bytes(), last)
+}
+
+func (dp *delimProc) Process(buf []byte, last bool) error {
+	dp.tmp.Reset()
+	_, _ = dp.tmp.Write(buf)
+	_, _ = dp.tmp.Write(dp.delim)
+	return dp.next.Process(dp.tmp.Bytes(), last)
 }
 
 func (wr writer) Process(buf []byte, last bool) error {
@@ -156,17 +136,10 @@ func (wr writer) ReadFrom(r io.Reader) (n int64, err error) {
 	return io.Copy(wr.w, r)
 }
 
-func (p print) String() string {
-	if p.fmt != "" {
-		return fmt.Sprintf("p%%%q", p.fmt)
-	}
-	if p.delim != "" {
-		return fmt.Sprintf("p%q", p.delim)
-	}
-	return "p"
-}
-func (fr fmter) String() string       { return fmt.Sprintf("p%%%q %v", fr.fmt, fr.next) }
-func (dr delimer) String() string     { return fmt.Sprintf("p%q %v", dr.delim, dr.next) }
+func (p printFormat) String() string  { return fmt.Sprintf("p%%%q", string(p)) }
+func (p printDelim) String() string   { return fmt.Sprintf("p%q", string(p)) }
+func (fp fmtProc) String() string     { return fmt.Sprintf("p%%%q %v", fp.fmt, fp.next) }
+func (dp delimProc) String() string   { return fmt.Sprintf("p%q %v", dp.delim, dp.next) }
 func (wr writer) String() string      { return "p" }
 func (fw fmtWriter) String() string   { return fmt.Sprintf("p%%%q", fw.fmt) }
 func (dw delimWriter) String() string { return fmt.Sprintf("p%q", dw.delim) }

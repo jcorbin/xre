@@ -16,58 +16,40 @@ func scanY(s string) (Command, string, error) {
 		// TODO could default to line-delimiting (aka as if y"\n" was given)
 		return nil, s, fmt.Errorf("empty y command")
 	}
-	var y between
 	switch c := s[0]; c {
 
 	case '[', '{', '(', '<':
 		s = s[1:]
-		y.open = c
-		y.close = balancedOpens[c]
+		return ProtoCommand{betweenBalanced{c, balancedOpens[c]}}, s, nil
 
 	case '/':
-		var err error
-		y.pat, s, err = scanPat(c, s[1:])
+		// TODO support and optimize to static byte strings when possible
+		pat, s, err := scanPat(c, s[1:])
 		if err != nil {
 			return nil, s, err
 		}
+		return ProtoCommand{betweenDelimRe{pat}}, s, nil
 
 	case '"':
-		var err error
-		y.delim, s, err = scanString(c, s[1:])
+		delim, s, err := scanString(c, s[1:])
+		var cutset string
+		if delim == "" {
+			return nil, s, fmt.Errorf("empty y command")
+		}
 		if err != nil {
 			return nil, s, err
 		}
 		if len(s) > 3 && s[0] == '~' && s[1] == '"' {
-			y.cutset, s, err = scanString(c, s[2:])
+			cutset, s, err = scanString(c, s[2:])
 			if err != nil {
 				return nil, s, err
 			}
 		}
+		return ProtoCommand{betweenDelim(delim, cutset)}, s, nil
 
 	default:
 		return nil, s, fmt.Errorf("unrecognized y command")
 	}
-	return matcherCmd(y), s, nil
-}
-
-type between struct {
-	// TODO support and optimize to static start/end byte strings when possible
-	pat           *regexp.Regexp
-	delim, cutset string
-	open, close   byte
-}
-
-func (y between) createMatcher(env Environment) (matcher, error) {
-	if y.open != 0 {
-		return betweenBalanced{y.open, y.close}, nil
-	}
-	if y.pat != nil {
-		return betweenDelimRe{y.pat}, nil
-	}
-	if y.delim == "" {
-		return nil, errors.New("empty y command")
-	}
-	return betweenDelim(y.delim, y.cutset), nil
 }
 
 func betweenDelim(delim, cutset string) (bds betweenDelimSplit) {
@@ -122,6 +104,13 @@ func (bds betweenDelimSplit) match(mp *matchProcessor, buf []byte) error {
 	start := cap(buf) - cap(token)
 	end := start + len(token)
 	return mp.pushLoc(start, end, advance)
+}
+
+func (bdr betweenDelimRe) Create(next Processor) Processor {
+	return &matchProcessor{next: next, matcher: bdr}
+}
+func (bds betweenDelimSplit) Create(next Processor) Processor {
+	return &matchProcessor{next: next, matcher: bds}
 }
 
 func (bb betweenBalanced) String() string    { return fmt.Sprintf("y%s", string(bb.open)) }

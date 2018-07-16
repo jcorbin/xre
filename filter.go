@@ -1,88 +1,38 @@
 package xre
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
 )
 
 func scanG(s string) (Command, string, error) {
-	var g filter
-	var err error
-	g.pat, s, err = scanPat(s[0], s[1:])
+	pat, s, err := scanPat(s[0], s[1:])
 	if err != nil {
 		return nil, s, err
 	}
-	return g, s, nil
+	return ProtoCommand{regexpFilter{pat}}, s, nil
 }
 
 func scanV(s string) (Command, string, error) {
-	v := filter{negate: true}
-	var err error
-	v.pat, s, err = scanPat(s[0], s[1:])
+	pat, s, err := scanPat(s[0], s[1:])
 	if err != nil {
 		return nil, s, err
 	}
-	return v, s, nil
+	return ProtoCommand{regexpNegFilter{pat}}, s, nil
 }
 
-type filter struct {
-	negate bool
-	pat    *regexp.Regexp
+type regexpFilter struct{ pat *regexp.Regexp }
+type regexpNegFilter regexpFilter
+
+func (fl regexpFilter) test(buf []byte) bool    { return fl.pat.Match(buf) }
+func (fn regexpNegFilter) test(buf []byte) bool { return !fn.pat.Match(buf) }
+
+func (fl regexpFilter) Create(next Processor) Processor {
+	return &predicateProcessor{predicate: fl, next: next}
+}
+func (fn regexpNegFilter) Create(next Processor) Processor {
+	return &predicateProcessor{predicate: fn, next: next}
 }
 
-func (g filter) Create(nc Command, env Environment) (Processor, error) {
-	if g.pat == nil {
-		if g.negate {
-			return nil, errors.New("empty v command")
-		}
-		return nil, errors.New("empty g command")
-	}
-
-	next, err := createProcessor(nc, env)
-	if err != nil {
-		return nil, err
-	}
-
-	if g.negate {
-		return regexpNegFilter{g.pat, next}, nil
-	}
-	return regexpFilter{g.pat, next}, nil
-}
-
-type regexpFilter struct {
-	pat  *regexp.Regexp
-	next Processor
-}
-
-type regexpNegFilter struct {
-	pat  *regexp.Regexp
-	next Processor
-}
-
-func (fl regexpFilter) Process(buf []byte, last bool) error {
-	if fl.pat.Match(buf) {
-		return fl.next.Process(buf, last)
-	}
-	return nil
-}
-
-func (fn regexpNegFilter) Process(buf []byte, last bool) error {
-	if !fn.pat.Match(buf) {
-		return fn.next.Process(buf, last)
-	}
-	return nil
-}
-
-func (g filter) String() string {
-	if g.negate {
-		return fmt.Sprintf("v%v", regexpString(g.pat))
-	}
-	return fmt.Sprintf("g%v", regexpString(g.pat))
-}
-func (fl regexpFilter) String() string {
-	return fmt.Sprintf("g%v %v", regexpString(fl.pat), fl.next)
-}
-func (fn regexpNegFilter) String() string {
-	return fmt.Sprintf("v%v %v", regexpString(fn.pat), fn.next)
-}
+func (fl regexpFilter) String() string    { return fmt.Sprintf("g%v", regexpString(fl.pat)) }
+func (fn regexpNegFilter) String() string { return fmt.Sprintf("v%v", regexpString(fn.pat)) }

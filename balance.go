@@ -45,3 +45,10 @@ func scanBalanced(open, close byte, buf []byte) ([2]int, bool) {
 	}
 	return [2]int{0, 0}, false
 }
+
+func (bb betweenBalanced) Create(next Processor) Processor {
+	return &matchProcessor{next: next, matcher: bb}
+}
+func (eb extractBalanced) Create(next Processor) Processor {
+	return &matchProcessor{next: next, matcher: eb}
+}

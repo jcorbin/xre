@@ -13,3 +13,11 @@ package xre
 type Processor interface {
 	Process(buf []byte, last bool) error
 }
+
+// ProtoProcessor is a nearly constructed Processor. Useful for constructing
+// generic Command implementations, to encapsulate some piece of processing
+// that only needs to know the next step (doesn't need to control the creation
+// of the next step, and doesn't need Environment access).
+type ProtoProcessor interface {
+	Create(next Processor) Processor
+}

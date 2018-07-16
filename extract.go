@@ -1,7 +1,6 @@
 package xre
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
 )
@@ -10,46 +9,28 @@ func scanX(s string) (Command, string, error) {
 	if len(s) == 0 {
 		return nil, s, fmt.Errorf("empty x command")
 	}
-	var x extract
 	switch c := s[0]; c {
 
 	case '[', '{', '(', '<':
 		s = s[1:]
-		x.open = c
-		x.close = balancedOpens[c]
+		return ProtoCommand{extractBalanced{c, balancedOpens[c]}}, s, nil
 
 	case '/':
-		var err error
-		x.pat, s, err = scanPat(c, s[1:])
+		pat, s, err := scanPat(c, s[1:])
 		if err != nil {
 			return nil, s, err
+		}
+		switch n := pat.NumSubexp(); n {
+		case 0:
+			return ProtoCommand{extractRe{pat}}, s, nil
+		case 1:
+			return ProtoCommand{extractReSub{pat}}, s, nil
+		default:
+			return nil, s, fmt.Errorf("unimplemented %v-sub-pattern extraction", n)
 		}
 
 	default:
 		return nil, s, fmt.Errorf("unrecognized x command")
-	}
-	return matcherCmd(x), s, nil
-}
-
-type extract struct {
-	pat         *regexp.Regexp
-	open, close byte
-}
-
-func (x extract) createMatcher(env Environment) (matcher, error) {
-	if x.open != 0 {
-		return extractBalanced{x.open, x.close}, nil
-	}
-	if x.pat == nil {
-		return nil, errors.New("empty x command")
-	}
-	switch n := x.pat.NumSubexp(); n {
-	case 0:
-		return extractRe{x.pat}, nil
-	case 1:
-		return extractReSub{x.pat}, nil
-	default:
-		return nil, fmt.Errorf("extraction with %v sub-patterns not supported", n)
 	}
 }
 
@@ -68,6 +49,13 @@ func (ers extractReSub) match(mp *matchProcessor, buf []byte) error {
 		return mp.pushLoc(locs[2], locs[3], locs[1])
 	}
 	return nil
+}
+
+func (er extractRe) Create(next Processor) Processor {
+	return &matchProcessor{matcher: er, next: next}
+}
+func (ers extractReSub) Create(next Processor) Processor {
+	return &matchProcessor{matcher: ers, next: next}
 }
 
 func (eb extractBalanced) String() string { return fmt.Sprintf("x%s", string(eb.open)) }
