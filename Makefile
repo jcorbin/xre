@@ -5,6 +5,10 @@ all: test xre
 clean:
 	rm xre cover.out
 
+check:
+	@echo rev $(shell git rev-parse HEAD)
+	@make lint test
+
 lint:
 	golint $(PACKAGE)/...
 	go vet $(PACKAGE)/...
