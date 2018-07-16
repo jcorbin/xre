@@ -11,6 +11,7 @@ import (
 // where output goes.
 type Environment interface {
 	Default() Processor
+	Close() error
 	// Create(name string) (processor, error) TODO
 	// Printf(format string, args ...interface{}) TODO
 	// TODO takeover source io.Reader(s)?
@@ -23,6 +24,7 @@ type _nullEnv struct{}
 type FileEnv struct {
 	DefaultOutfile *os.File
 
+	bufw *bufio.Writer
 	defp Processor
 }
 
@@ -35,9 +37,19 @@ var Stdenv = FileEnv{
 // provided DefaultOutfile through a buffered writer.
 func (fe *FileEnv) Default() Processor {
 	if fe.defp == nil {
-		fe.defp = writer{bufio.NewWriter(fe.DefaultOutfile)} // TODO buffering control
+		fe.bufw = bufio.NewWriter(fe.DefaultOutfile) // TODO buffering control
+		fe.defp = writer{fe.bufw}
 	}
 	return fe.defp
+}
+
+// Close flushes any open output buffer(s) and closes any open files.
+func (fe *FileEnv) Close() error {
+	err := fe.bufw.Flush()
+	if cerr := fe.DefaultOutfile.Close(); err == nil {
+		err = cerr
+	}
+	return err
 }
 
 // NullEnv is an Environment that discards all output, useful mainly for
@@ -45,6 +57,7 @@ func (fe *FileEnv) Default() Processor {
 var NullEnv Environment = _nullEnv{}
 
 func (ne _nullEnv) Default() Processor { return writer{ioutil.Discard} }
+func (ne _nullEnv) Close() error       { return nil }
 
 // BufEnv is an Environment that collects all output in an in-memory buffer;
 // useful mainly for testing.
@@ -54,6 +67,9 @@ type BufEnv struct {
 
 // Default returns a processor that will write to the DefaultOutput buffer.
 func (be *BufEnv) Default() Processor { return writer{&be.DefaultOutput} }
+
+// Close does nothing.
+func (be *BufEnv) Close() error { return nil }
 
 // type assertions for fast failure
 var (

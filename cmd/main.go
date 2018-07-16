@@ -18,8 +18,13 @@ func main() {
 	}
 }
 
-func run() error {
+func run() (rerr error) {
 	mainEnv := xre.Stdenv // TODO support redirection
+	defer func() {
+		if cerr := mainEnv.Close(); rerr == nil {
+			rerr = cerr
+		}
+	}()
 
 	flag.Parse()
 
