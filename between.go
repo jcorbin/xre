@@ -67,18 +67,21 @@ func (y between) createMatcher(env Environment) (matcher, error) {
 	if y.delim == "" {
 		return nil, errors.New("empty y command")
 	}
-	var split splitter
-	if allNewlines(y.delim) && y.cutset == "" {
-		split = lineSplitter(len(y.delim))
-	} else if len(y.delim) == 1 {
-		split = byteSplitter(y.delim[0])
+	return betweenDelim(y.delim, y.cutset), nil
+}
+
+func betweenDelim(delim, cutset string) (bds betweenDelimSplit) {
+	if allNewlines(delim) && cutset == "" {
+		bds.split = lineSplitter(len(delim))
+	} else if len(delim) == 1 {
+		bds.split = byteSplitter(delim[0])
 	} else {
-		split = bytesSplitter(y.delim)
+		bds.split = bytesSplitter(delim)
 	}
-	if y.cutset != "" {
-		split = trimmedSplitter(split, y.cutset)
+	if cutset != "" {
+		bds.split = trimmedSplitter(bds.split, cutset)
 	}
-	return betweenDelimSplit{split}, nil
+	return bds
 }
 
 type betweenDelimRe struct{ pat *regexp.Regexp }
