@@ -99,6 +99,9 @@ type delimWriter struct {
 
 func (p printFormat) Create(next Processor) Processor {
 	switch impl := next.(type) {
+	case *delimProc:
+		p = printFormat(string(p) + string(impl.delim))
+		next = impl.next
 	case writer:
 		return fmtWriter{string(p), impl}
 	case delimWriter:
@@ -109,6 +112,9 @@ func (p printFormat) Create(next Processor) Processor {
 
 func (p printDelim) Create(next Processor) Processor {
 	switch impl := next.(type) {
+	case *delimProc:
+		p = printDelim(string(p) + string(impl.delim))
+		next = impl.next
 	case writer:
 		return delimWriter{[]byte(p), impl}
 	case delimWriter:

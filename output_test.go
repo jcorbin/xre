@@ -53,7 +53,7 @@ func Test_print(t *testing.T) {
 			out: loremIpsum,
 		},
 
-		{name: "delim + delim = delim",
+		{name: "delim + delim",
 			cmd:  `y/\n\n/ x/\w+/ p"," p"\n"`,
 			proc: `y/\n\n/ x/\w+/ p",\n"`,
 			in: stripBlockSpace(`
@@ -77,7 +77,7 @@ func Test_print(t *testing.T) {
 			`),
 		},
 
-		{name: "fmt + delim = fmt",
+		{name: "fmt + delim",
 			cmd:  `y/\n\n/ x/\w+/ p%"%q" p"\n"`,
 			proc: `y/\n\n/ x/\w+/ p%"%q\n"`,
 			in: stripBlockSpace(`
@@ -145,6 +145,27 @@ func Test_print(t *testing.T) {
 			- "paragraph"
 			- "too"
 			`),
+		},
+
+		{name: "delim + delim + ...",
+			cmd:  `y/\n\n/ x/\w+/ p"," p"\n" y/\n/ p"\n"`,
+			proc: `y/\n\n/ x/\w+/ p",\n" y/\n/ p"\n"`,
+			in:   []byte(`foo bar`),
+			out:  []byte("foo,\nbar,\n"),
+		},
+
+		{name: "fmt + delim + ...",
+			cmd:  `y/\n\n/ x/\w+/ p%"%q" p"\n" y/\n/ p"\n"`,
+			proc: `y/\n\n/ x/\w+/ p%"%q\n" y/\n/ p"\n"`,
+			in:   []byte(`foo bar`),
+			out:  []byte("\"foo\"\n\"bar\"\n"),
+		},
+
+		{name: "delim + fmt + ...",
+			cmd:  `y/\n\n/ x/\w+/ p"," p%"%q\n" y/\n/ p"\n"`,
+			proc: `y/\n\n/ x/\w+/ p"," p%"%q\n" y/\n/ p"\n"`,
+			in:   []byte(`foo bar`),
+			out:  []byte("\"foo,\"\n\"bar,\"\n"),
 		},
 	}.run(t)
 }
