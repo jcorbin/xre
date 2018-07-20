@@ -87,8 +87,22 @@ func (mp *matchProcessor) run(buf *readBuf) (err error) {
 				break
 			}
 			buf := mp.buf.buf[off:]
-			err = mp.matcher.match(mp, buf)
-			if err != nil || mp.offset() == off {
+			if err = mp.matcher.match(mp, buf); err != nil {
+				// matcher failed
+				break
+			} else if newOff := mp.offset(); newOff == off {
+				// no progress
+				break
+			} else if newOff == len(mp.buf.buf) {
+				// matcher consumed entire buffer
+				if berr != io.EOF &&
+					mp.pendLoc &&
+					mp.priorLoc[1] == mp.priorLoc[2] {
+					// Forget pending loc at end of buffer so that we get a
+					// chance to match it with more content next time.
+					mp.pendLoc = false
+					mp.priorLoc = [3]int{0, 0, 0}
+				}
 				break
 			}
 		}

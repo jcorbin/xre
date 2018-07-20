@@ -48,5 +48,37 @@ func Test_extract(t *testing.T) {
 			"cee"
 			`),
 		},
+
+		{
+			name: "word extraction",
+			cmd:  `x/\w+/ p"\n"`,
+			in: stripBlockSpace(`
+			able was I
+			ere
+			I saw elba.
+
+			the quick brown
+			fox jumps over
+			the lazy  hound.
+			`),
+			out: stripBlockSpace(`
+			able
+			was
+			I
+			ere
+			I
+			saw
+			elba
+			the
+			quick
+			brown
+			fox
+			jumps
+			over
+			the
+			lazy
+			hound
+			`),
+		},
 	}.run(t)
 }
