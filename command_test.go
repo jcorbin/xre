@@ -3,6 +3,7 @@ package xre_test
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
 	"unicode"
@@ -20,8 +21,86 @@ type cmdTestCase struct {
 	name string
 	cmd  string
 	proc string
-	in   []byte
+	in   interface{}
 	out  []byte
+	err  string
+
+	verbose bool
+}
+
+type _readFixture []_readFix
+
+type _fixedReader struct {
+	fs []_readFix
+}
+
+type _readFix struct {
+	p   []byte
+	err error
+}
+
+func readFixture(args ...interface{}) _readFixture {
+	fs := make(_readFixture, 0, len(args))
+	for _, arg := range args {
+		var f _readFix
+		switch val := arg.(type) {
+		case string:
+			f.p = []byte(val)
+		case []byte:
+			f.p = val
+		case error:
+			f.err = val
+		default:
+			panic(fmt.Sprintf("unsupported readFixture arg type %T", arg))
+		}
+		if i := len(fs) - 1; i >= 0 &&
+			fs[i].p == nil &&
+			f.err == nil &&
+			f.p != nil {
+			fs[i].p = f.p
+		} else {
+			fs = append(fs, f)
+		}
+	}
+	return fs
+}
+
+func (f _readFix) String() string {
+	var buf bytes.Buffer
+	if f.p != nil {
+		_, _ = fmt.Fprintf(&buf, "p=%q", f.p)
+	}
+	if f.err != nil {
+		if buf.Len() > 0 {
+			_ = buf.WriteByte(',')
+		}
+		_, _ = fmt.Fprintf(&buf, "err=%v", f.err)
+	}
+	return buf.String()
+}
+
+func (rf _readFixture) Reader() io.Reader {
+	return &_fixedReader{append([]_readFix(nil), rf...)}
+}
+
+func (fr *_fixedReader) Read(b []byte) (n int, err error) {
+	if len(fr.fs) == 0 {
+		return 0, io.EOF
+	}
+	n, err = copy(b, fr.fs[0].p), fr.fs[0].err
+	if err != nil {
+		fr.fs = nil
+		return
+	}
+	if n < len(fr.fs[0].p) {
+		fr.fs[0].p = fr.fs[0].p[n:]
+	} else {
+		fr.fs = fr.fs[1:]
+		if err == nil && len(fr.fs) == 0 {
+			err = io.EOF
+		}
+	}
+	return
 }
 
 type cmdTestCases []cmdTestCase
@@ -62,26 +141,52 @@ func (tc cmdTestCase) runIn(te *testEnv, t *testing.T) {
 		assert.Equal(t, tc.cmd, fmt.Sprint(rf), "expected built reader string to round-trip")
 	}
 
-	if proc, ok := rf.(xre.Processor); ok {
+	if tc.verbose {
+		t.Logf("input: %v", tc.in)
+	}
+
+	type readable interface {
+		Reader() io.Reader
+	}
+
+	ra, haveReadable := tc.in.(readable)
+	b, haveBytes := tc.in.([]byte)
+	require.True(t, haveBytes || haveReadable, "unsupported test case in type %T", tc.in)
+
+	var r io.Reader
+	if haveReadable {
+		r = ra.Reader()
+	} else {
+		r = bytes.NewReader(b)
+	}
+	if tc.verbose {
+		r = loggedReader{r, t.Logf}
+	}
+
+	if proc, haveProc := rf.(xre.Processor); haveProc && haveBytes {
 		t.Run("xre.Processor mode", func(t *testing.T) {
 			te.DefaultOutput.Reset()
-			err := proc.Process(tc.in, true)
+			err := proc.Process(b, true)
 			tc.check(t, te.DefaultOutput.Bytes(), err)
 		})
 		t.Run("io.ReaderFrom mode", func(t *testing.T) {
 			te.DefaultOutput.Reset()
-			_, err := rf.ReadFrom(bytes.NewReader(tc.in))
+			_, err := rf.ReadFrom(r)
 			tc.check(t, te.DefaultOutput.Bytes(), err)
 		})
 	} else {
 		te.DefaultOutput.Reset()
-		_, err := rf.ReadFrom(bytes.NewReader(tc.in))
+		_, err := rf.ReadFrom(r)
 		tc.check(t, te.DefaultOutput.Bytes(), err)
 	}
 }
 
 func (tc cmdTestCase) check(t *testing.T, b []byte, err error) (ok bool) {
-	ok = assert.NoError(t, err, "unexpected processing error")
+	if tc.err == "" {
+		ok = assert.NoError(t, err, "unexpected processing error")
+	} else {
+		ok = assert.EqualError(t, err, tc.err)
+	}
 	if ok {
 		ok = assert.Equal(t, tc.out, b, "expected command output")
 	}
@@ -117,4 +222,15 @@ func stripBlockSpace(s string) []byte {
 	}
 	buf.WriteByte('\n')
 	return buf.Bytes()
+}
+
+type loggedReader struct {
+	io.Reader
+	logf func(string, ...interface{})
+}
+
+func (lr loggedReader) Read(p []byte) (n int, err error) {
+	n, err = lr.Reader.Read(p)
+	lr.logf("read => %q, %v", p[:n], err)
+	return n, err
 }
