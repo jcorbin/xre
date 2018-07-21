@@ -69,14 +69,18 @@ func (tc cmdTestCase) runIn(te *testEnv, t *testing.T) {
 				assert.Equal(t, tc.out, te.DefaultOutput.Bytes(), "expected command output")
 			}
 		})
-	}
-
-	t.Run("io.ReaderFrom mode", func(t *testing.T) {
+		t.Run("io.ReaderFrom mode", func(t *testing.T) {
+			te.DefaultOutput.Reset()
+			if _, err := rf.ReadFrom(bytes.NewReader(tc.in)); assert.NoError(t, err, "command failed") {
+				assert.Equal(t, tc.out, te.DefaultOutput.Bytes(), "expected command output")
+			}
+		})
+	} else {
 		te.DefaultOutput.Reset()
 		if _, err := rf.ReadFrom(bytes.NewReader(tc.in)); assert.NoError(t, err, "command failed") {
 			assert.Equal(t, tc.out, te.DefaultOutput.Bytes(), "expected command output")
 		}
-	})
+	}
 }
 
 func stripBlockSpace(s string) []byte {
