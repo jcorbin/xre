@@ -21,10 +21,9 @@ func Test_filter(t *testing.T) {
 	// TODO leverage line-oriented defaults once available
 
 	cmdTestCases{
-		{
-			name: "finding cats",
-			cmd:  `y/\n/ g/cat/ p"\n"`,
-			in:   catAdjacentThings,
+		{name: "finding cats",
+			cmd: `y/\n/ g/cat/ p"\n"`,
+			in:  catAdjacentThings,
 			out: stripBlockSpace(`
 			cat
 			bobcat
@@ -33,10 +32,9 @@ func Test_filter(t *testing.T) {
 			`),
 		},
 
-		{
-			name: "excising cats",
-			cmd:  `y/\n/ v/cat/ p"\n"`,
-			in:   catAdjacentThings,
+		{name: "excising cats",
+			cmd: `y/\n/ v/cat/ p"\n"`,
+			in:  catAdjacentThings,
 			out: stripBlockSpace(`
 			bird
 			dog

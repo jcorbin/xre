@@ -47,15 +47,13 @@ vitae.
 
 func Test_print(t *testing.T) {
 	cmdTestCases{
-		{
-			name: "degrades to cat",
-			cmd:  `p`,
-			in:   loremIpsum,
-			out:  loremIpsum,
+		{name: "degrades to cat",
+			cmd: `p`,
+			in:  loremIpsum,
+			out: loremIpsum,
 		},
 
-		{
-			name: "delim + delim = delim",
+		{name: "delim + delim = delim",
 			cmd:  `y/\n\n/ x/\w+/ p"," p"\n"`,
 			proc: `y/\n\n/ x/\w+/ p",\n"`,
 			in: stripBlockSpace(`
@@ -79,8 +77,7 @@ func Test_print(t *testing.T) {
 			`),
 		},
 
-		{
-			name: "fmt + delim = fmt",
+		{name: "fmt + delim = fmt",
 			cmd:  `y/\n\n/ x/\w+/ p%"%q" p"\n"`,
 			proc: `y/\n\n/ x/\w+/ p%"%q\n"`,
 			in: stripBlockSpace(`
@@ -104,9 +101,8 @@ func Test_print(t *testing.T) {
 			`),
 		},
 
-		{
-			name: "delim + fmt",
-			cmd:  `y/\n\n/ x/\w+/ p"," p%"%q\n"`,
+		{name: "delim + fmt",
+			cmd: `y/\n\n/ x/\w+/ p"," p%"%q\n"`,
 			in: stripBlockSpace(`
 			This is a sentence, with a comma; it's in a
 			paragraph too.
@@ -128,9 +124,8 @@ func Test_print(t *testing.T) {
 			`),
 		},
 
-		{
-			name: "fmt + fmt",
-			cmd:  `y/\n\n/ x/\w+/ p%"%q" p%"- %s\n"`,
+		{name: "fmt + fmt",
+			cmd: `y/\n\n/ x/\w+/ p%"%q" p%"- %s\n"`,
 			in: stripBlockSpace(`
 			This is a sentence, with a comma; it's in a
 			paragraph too.

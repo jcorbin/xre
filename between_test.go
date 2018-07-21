@@ -4,9 +4,8 @@ import "testing"
 
 func Test_between(t *testing.T) {
 	cmdTestCases{
-		{
-			name: "line splitting",
-			cmd:  `y"\n" p%"%q\n"`,
+		{name: "line splitting",
+			cmd: `y"\n" p%"%q\n"`,
 			in: stripBlockSpace(`
 			aee
 			bee	dee
@@ -19,9 +18,8 @@ func Test_between(t *testing.T) {
 			`),
 		},
 
-		{
-			name: "paragraph splitting",
-			cmd:  `y"\n\n" p%"%q\n"`,
+		{name: "paragraph splitting",
+			cmd: `y"\n\n" p%"%q\n"`,
 			in: stripBlockSpace(`
 			because:
 			- thing
@@ -38,9 +36,8 @@ func Test_between(t *testing.T) {
 			`),
 		},
 
-		{
-			name: "lines within paragraphs",
-			cmd:  `y"\n\n" y"\n" p%"%q\n"`,
+		{name: "lines within paragraphs",
+			cmd: `y"\n\n" y"\n" p%"%q\n"`,
 			in: stripBlockSpace(`
 			because:
 			- thing
@@ -62,9 +59,8 @@ func Test_between(t *testing.T) {
 			`),
 		},
 
-		{
-			name: "words in lines in paragraphs",
-			cmd:  `y"\n\n" y"\n" y/\s+/ p%"%q\n"`,
+		{name: "words in lines in paragraphs",
+			cmd: `y"\n\n" y"\n" y/\s+/ p%"%q\n"`,
 			in: stripBlockSpace(`
 			because:
 			- thing
@@ -95,9 +91,8 @@ func Test_between(t *testing.T) {
 			`),
 		},
 
-		{
-			name: "between marker lines",
-			cmd:  `y/\n*--- MARK ---\n+/ p%"%q\n"`,
+		{name: "between marker lines",
+			cmd: `y/\n*--- MARK ---\n+/ p%"%q\n"`,
 			in: stripBlockSpace(`
 			--- MARK ---
 			bla bla

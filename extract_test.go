@@ -4,9 +4,8 @@ import "testing"
 
 func Test_extract(t *testing.T) {
 	cmdTestCases{
-		{
-			name: "line extraction",
-			cmd:  `x/.*\n/ p%"%q\n"`,
+		{name: "line extraction",
+			cmd: `x/.*\n/ p%"%q\n"`,
 			in: stripBlockSpace(`
 			aee
 			bee	dee
@@ -19,9 +18,8 @@ func Test_extract(t *testing.T) {
 			`),
 		},
 
-		{
-			name: "line extraction (submatch)",
-			cmd:  `x/(.*)\n/ p%"%q\n"`,
+		{name: "line extraction (submatch)",
+			cmd: `x/(.*)\n/ p%"%q\n"`,
 			in: stripBlockSpace(`
 			aee
 			bee	dee
@@ -34,9 +32,8 @@ func Test_extract(t *testing.T) {
 			`),
 		},
 
-		{
-			name: "field extraction",
-			cmd:  `x/(.*)\n/ x/^([^\s]+).*$/ p%"%q\n"`,
+		{name: "field extraction",
+			cmd: `x/(.*)\n/ x/^([^\s]+).*$/ p%"%q\n"`,
 			in: stripBlockSpace(`
 			aee
 			bee	dee
@@ -49,9 +46,8 @@ func Test_extract(t *testing.T) {
 			`),
 		},
 
-		{
-			name: "word extraction",
-			cmd:  `x/\w+/ p"\n"`,
+		{name: "word extraction",
+			cmd: `x/\w+/ p"\n"`,
 			in: stripBlockSpace(`
 			able was I
 			ere
