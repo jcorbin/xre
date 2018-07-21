@@ -65,22 +65,27 @@ func (tc cmdTestCase) runIn(te *testEnv, t *testing.T) {
 	if proc, ok := rf.(xre.Processor); ok {
 		t.Run("xre.Processor mode", func(t *testing.T) {
 			te.DefaultOutput.Reset()
-			if assert.NoError(t, proc.Process(tc.in, true), "command failed") {
-				assert.Equal(t, tc.out, te.DefaultOutput.Bytes(), "expected command output")
-			}
+			err := proc.Process(tc.in, true)
+			tc.check(t, te.DefaultOutput.Bytes(), err)
 		})
 		t.Run("io.ReaderFrom mode", func(t *testing.T) {
 			te.DefaultOutput.Reset()
-			if _, err := rf.ReadFrom(bytes.NewReader(tc.in)); assert.NoError(t, err, "command failed") {
-				assert.Equal(t, tc.out, te.DefaultOutput.Bytes(), "expected command output")
-			}
+			_, err := rf.ReadFrom(bytes.NewReader(tc.in))
+			tc.check(t, te.DefaultOutput.Bytes(), err)
 		})
 	} else {
 		te.DefaultOutput.Reset()
-		if _, err := rf.ReadFrom(bytes.NewReader(tc.in)); assert.NoError(t, err, "command failed") {
-			assert.Equal(t, tc.out, te.DefaultOutput.Bytes(), "expected command output")
-		}
+		_, err := rf.ReadFrom(bytes.NewReader(tc.in))
+		tc.check(t, te.DefaultOutput.Bytes(), err)
 	}
+}
+
+func (tc cmdTestCase) check(t *testing.T, b []byte, err error) (ok bool) {
+	ok = assert.NoError(t, err, "unexpected processing error")
+	if ok {
+		ok = assert.Equal(t, tc.out, b, "expected command output")
+	}
+	return ok
 }
 
 func stripBlockSpace(s string) []byte {
