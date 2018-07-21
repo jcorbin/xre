@@ -73,47 +73,46 @@ func (mp *matchProcessor) ReadFrom(r io.Reader) (int64, error) {
 	return mp.buf.ProcessFrom(r, mp.run)
 }
 
-func (mp *matchProcessor) run(buf *readBuf) (err error) {
+func (mp *matchProcessor) run(buf *readBuf) error {
 	// TODO could allow full control upgrade ala
 	// type matchRunner interface {
 	// 	runMatch(mp *matchProcessor)
 	// }
 
 	berr := buf.Err()
-	if berr == nil || berr == io.EOF {
-		for {
-			off := mp.offset()
-			if off >= len(mp.buf.buf) {
-				break
+	for {
+		off := mp.offset()
+		if off >= len(mp.buf.buf) {
+			break
+		}
+		buf := mp.buf.buf[off:]
+		if err := mp.matcher.match(mp, buf); err != nil {
+			// matcher failed
+			_ = mp.procPrior(false)
+			return err
+		} else if newOff := mp.offset(); newOff == off {
+			// no progress
+			break
+		} else if newOff == len(mp.buf.buf) {
+			// matcher consumed entire buffer
+			if berr != io.EOF &&
+				mp.pendLoc &&
+				mp.priorLoc[1] == mp.priorLoc[2] {
+				// Forget pending loc at end of buffer so that we get a
+				// chance to match it with more content next time.
+				mp.pendLoc = false
+				mp.priorLoc = [3]int{0, 0, 0}
 			}
-			buf := mp.buf.buf[off:]
-			if err = mp.matcher.match(mp, buf); err != nil {
-				// matcher failed
-				break
-			} else if newOff := mp.offset(); newOff == off {
-				// no progress
-				break
-			} else if newOff == len(mp.buf.buf) {
-				// matcher consumed entire buffer
-				if berr != io.EOF &&
-					mp.pendLoc &&
-					mp.priorLoc[1] == mp.priorLoc[2] {
-					// Forget pending loc at end of buffer so that we get a
-					// chance to match it with more content next time.
-					mp.pendLoc = false
-					mp.priorLoc = [3]int{0, 0, 0}
-				}
-				break
-			}
+			break
 		}
 	}
-	if berr != nil && err == nil && !mp.flushed {
-		mp.flushed = true
-		advance, token := mp.prior()
-		err = mp.yield(token, true)
-		mp.buf.Advance(advance)
+	if berr == io.EOF {
+		return mp.flush()
 	}
-	return err
+	if berr != nil {
+		return mp.procPrior(false)
+	}
+	return nil
 }
 
 func (mp *matchProcessor) offset() int {
@@ -134,32 +133,33 @@ func (mp *matchProcessor) prior() (advance int, token []byte) {
 	return advance, token
 }
 
-func (mp *matchProcessor) flush() (int, error) {
-	if mp.flushed {
-		return 0, nil
-	}
-	mp.flushed = true
-	advance, token := mp.prior()
-	return advance, mp.yield(token, true)
-}
-
-func (mp *matchProcessor) procPrior() (int, error) {
+func (mp *matchProcessor) procPrior(last bool) error {
 	var err error
 	advance, prior := mp.prior()
-	if prior != nil {
-		err = mp.yield(prior, false)
+	if last || prior != nil {
+		err = mp.yield(prior, last)
 	}
-	return advance, err
+	mp.buf.Advance(advance)
+	return err
 }
 
 func (mp *matchProcessor) pushLoc(start, end, next int) error {
-	advance, err := mp.procPrior()
-	mp.buf.Advance(advance + start)
+	err := mp.procPrior(false)
+	mp.buf.Advance(start)
 	if err == nil {
+		mp.flushed = false
 		mp.pendLoc = true
 		mp.priorLoc = [3]int{0, end - start, next - start}
 	}
 	return err
+}
+
+func (mp *matchProcessor) flush() error {
+	if mp.flushed {
+		return nil
+	}
+	mp.flushed = true
+	return mp.procPrior(true)
 }
 
 func (mp *matchProcessor) flushTrailer() error {
@@ -167,13 +167,15 @@ func (mp *matchProcessor) flushTrailer() error {
 		return nil
 	}
 	mp.flushed = true
-	advance, err := mp.procPrior()
-	mp.buf.Advance(advance)
-	if end := mp.buf.Len(); end > 0 && err == nil {
-		token := mp.buf.Bytes()[0:end]
-		err = mp.yield(token, true)
-		mp.buf.Advance(end)
+	if err := mp.procPrior(false); err != nil {
+		return err
 	}
+	if mp.buf.Len() == 0 {
+		return nil
+	}
+	token := mp.buf.Bytes()
+	err := mp.yield(token, true)
+	mp.buf.Advance(len(token))
 	return err
 }
 
