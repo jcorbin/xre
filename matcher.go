@@ -14,7 +14,6 @@ type matcher interface {
 type matchProcessor struct {
 	matcher
 	buf      readBuf // TODO embed this also?
-	flushed  bool
 	pendLoc  bool
 	priorLoc [3]int
 	next     Processor
@@ -28,14 +27,12 @@ func (mp *matchProcessor) Process(buf []byte, last bool) error {
 	if buf == nil {
 		return mp.next.Process(nil, last)
 	}
-	mp.flushed = false
 	mp.pendLoc = false
 	mp.priorLoc = [3]int{0, 0, 0}
 	return mp.buf.ProcessIn(buf, mp.run)
 }
 
 func (mp *matchProcessor) ReadFrom(r io.Reader) (int64, error) {
-	mp.flushed = false
 	mp.pendLoc = false
 	mp.priorLoc = [3]int{0, 0, 0}
 	return mp.buf.ProcessFrom(r, mp.run)
@@ -115,7 +112,6 @@ func (mp *matchProcessor) pushLoc(start, end, next int) error {
 	err := mp.procPrior(false)
 	mp.buf.Advance(start)
 	if err == nil {
-		mp.flushed = false
 		mp.pendLoc = true
 		mp.priorLoc = [3]int{0, end - start, next - start}
 	}
@@ -123,7 +119,7 @@ func (mp *matchProcessor) pushLoc(start, end, next int) error {
 }
 
 func (mp *matchProcessor) flush() error {
-	if mp.flushed {
+	if !mp.pendLoc {
 		return nil
 	}
 	mp.flushed = true
@@ -131,10 +127,9 @@ func (mp *matchProcessor) flush() error {
 }
 
 func (mp *matchProcessor) flushTrailer() error {
-	if mp.flushed {
+	if !mp.pendLoc {
 		return nil
 	}
-	mp.flushed = true
 	if err := mp.procPrior(false); err != nil {
 		return err
 	}
