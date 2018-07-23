@@ -45,6 +45,9 @@ func (fe *FileEnv) Default() Processor {
 
 // Close flushes any open output buffer(s) and closes any open files.
 func (fe *FileEnv) Close() error {
+	if fe.bufw == nil {
+		return nil
+	}
 	err := fe.bufw.Flush()
 	if cerr := fe.DefaultOutfile.Close(); err == nil {
 		err = cerr
