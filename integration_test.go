@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"sync"
 	"testing"
 
@@ -51,6 +52,51 @@ func Test_integration(t *testing.T) {
 				assert.Equal(t, []byte{}, outb)
 			},
 		},
+
+		{name: "all imports",
+			sysCmd: []string{"find", ".", "-name", "*.go"},
+			xreCmd: `x/import \((.+?)\)/s y/\n/ x/"(.+?)"/ p"\n"`,
+			listIn: true,
+			check: func(t *testing.T, outb []byte) {
+				counts := countSep(outb, []byte("\n"))
+				for _, k := range []string{
+					"bufio",
+					"bytes",
+					"errors",
+					"flag",
+					"fmt",
+					"github.com/jcorbin/xre",
+					"github.com/jcorbin/xre/internal/cmdutil",
+					"github.com/stretchr/testify/assert",
+					"github.com/stretchr/testify/require",
+					"io",
+					"io/ioutil",
+					"log",
+					"os",
+					"os/exec",
+					"path/filepath",
+					"regexp",
+					"runtime/pprof",
+					"runtime/trace",
+					"sort",
+					"strconv",
+					"strings",
+					"sync",
+					"testing",
+					"unicode",
+				} {
+					_, def := counts[k]
+					assert.True(t, def, "expected output key %q", k)
+					delete(counts, k)
+				}
+				var extra []string
+				for k := range counts {
+					extra = append(extra, k)
+				}
+				sort.Strings(extra)
+				assert.Equal(t, []string(nil), extra, "unexpected extra output keys")
+			},
+		},
 	}
 
 	if t.Run("inproc", func(t *testing.T) {
@@ -63,10 +109,21 @@ func Test_integration(t *testing.T) {
 	}
 }
 
+func countSep(s, sep []byte) map[string]int {
+	counts := make(map[string]int, 64)
+	for lines, i := bytes.Split(s, sep), 0; i < len(lines); i++ {
+		if line := lines[i]; len(line) > 0 || i+1 < len(lines) {
+			counts[string(line)]++
+		}
+	}
+	return counts
+}
+
 type intTestCase struct {
 	name   string
 	sysCmd []string
 	xreCmd string
+	listIn bool
 	check  interface{}
 }
 
@@ -98,16 +155,36 @@ func (tc intTestCase) runInproc(t *testing.T) {
 		_ = epw.Close()
 	}()
 
+	fe := xre.FileEnv{
+		DefaultOutfile: opw,
+	}
+
+	if tc.listIn {
+		sc := bufio.NewScanner(r)
+		require.True(t, sc.Scan(), "must be able to scan at least one input")
+		fe.AddInput(os.Open(sc.Text()))
+		scerrch := make(chan error, 1)
+		go func() {
+			for sc.Scan() {
+				fe.AddInput(os.Open(sc.Text()))
+			}
+			fe.CloseInputs()
+			scerrch <- sc.Err()
+		}()
+		defer func() {
+			require.NoError(t, <-scerrch, "unexpected listIn scanning error")
+		}()
+	} else {
+		fe.DefaultInfile = r
+	}
+
 	errch := make(chan error, 1)
 	go func() {
 		defer func() {
 			_ = opw.Close()
 			_ = epw.Close()
 		}()
-		err := xre.RunCommand(tc.xreCmd, &xre.FileEnv{
-			DefaultInfile:  r,
-			DefaultOutfile: opw,
-		})
+		err := xre.RunCommand(tc.xreCmd, &fe)
 		if err != nil {
 			_, _ = fmt.Fprintf(epw, "%v\n", err)
 		}
@@ -136,6 +213,9 @@ func (tc intTestCase) runExcmd(t *testing.T) {
 	}()
 
 	xargs := []string{_builtCmd}
+	if tc.listIn {
+		xargs = append(xargs, "-l")
+	}
 	if tc.xreCmd != "" {
 		xargs = append(xargs, tc.xreCmd)
 	}
