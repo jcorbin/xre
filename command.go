@@ -58,6 +58,7 @@ func RunCommand(prog string, env Environment) (rerr error) {
 // Processing stops on the first input, read, or close error, which is returned.
 func RunReaderFrom(rf io.ReaderFrom, env Environment) error {
 	for in := range env.Inputs() {
+		// TODO option to skip read errors
 		if in.Err != nil {
 			return in.Err
 		}
