@@ -2,6 +2,7 @@ package xre_test
 
 import (
 	"bytes"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -33,6 +34,11 @@ func Test_integration(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			scmd := exec.Command(tc.sysCmd[0], tc.sysCmd[1:]...)
+			pipe, err := scmd.StdoutPipe()
+			require.NoError(t, err, "unable to get system command pipe")
+			require.NoError(t, scmd.Start(), "unable to start system command")
+
 			outf, err := ioutil.TempFile("", "")
 			require.NoError(t, err, "can't create a tempfile")
 			defer func() {
@@ -40,26 +46,15 @@ func Test_integration(t *testing.T) {
 				_ = os.Remove(outf.Name())
 			}()
 
-			env := &xre.FileEnv{
+			rs := make(chan io.ReadCloser, 1)
+			rs <- pipe
+			close(rs)
+
+			require.NoError(t, xre.RunCommand(tc.xreCmd, rs, &xre.FileEnv{
 				DefaultOutfile: outf,
-			}
-
-			scmd := exec.Command(tc.sysCmd[0], tc.sysCmd[1:]...)
-			pipe, err := scmd.StdoutPipe()
-			require.NoError(t, err, "unable to get system command pipe")
-			require.NoError(t, scmd.Start(), "unable to start system command")
-
-			xcmd, err := xre.ParseCommand(tc.xreCmd)
-			require.NoError(t, err, "unable to parse xre command")
-			rf, err := xre.BuildReaderFrom(xcmd, env)
-			require.NoError(t, err, "unable to build xre command")
-
-			_, err = rf.ReadFrom(pipe)
-			require.NoError(t, err, "unable to run xre command")
+			}), "failed to run xre command")
 
 			require.NoError(t, scmd.Wait(), "system command failed")
-
-			require.NoError(t, env.Close(), "unable to close environment")
 
 			inf, err := os.Open(outf.Name())
 			require.NoError(t, err, "unable to open in file")

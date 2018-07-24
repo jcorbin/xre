@@ -28,6 +28,36 @@ type Command interface {
 	Create(next Command, env Environment) (Processor, error)
 }
 
+// RunCommand parses the command, and runs it over all readers received from
+// the given channel, which are then closed after processing is done. It is a
+// convenience around ParseCommand and BuildReaderFrom. The given environment
+// is closed before returning.
+func RunCommand(prog string, rcs <-chan io.ReadCloser, env Environment) (rerr error) {
+	defer func() {
+		if cerr := env.Close(); rerr == nil {
+			rerr = cerr
+		}
+	}()
+	cmd, err := ParseCommand(prog)
+	if err != nil {
+		return err
+	}
+	rf, err := BuildReaderFrom(cmd, env)
+	if err != nil {
+		return err
+	}
+	for rc := range rcs {
+		_, err := rf.ReadFrom(rc)
+		if cerr := rc.Close(); err == nil {
+			err = cerr
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // ParseCommand parses an XRE command from the given string, returning any
 // parse error if the string is invalid.
 func ParseCommand(s string) (Command, error) {

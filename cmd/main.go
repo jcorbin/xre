@@ -5,6 +5,7 @@ package main
 import (
 	"errors"
 	"flag"
+	"io"
 	"log"
 	"os"
 
@@ -20,39 +21,27 @@ func main() {
 
 func run() (rerr error) {
 	mainEnv := xre.Stdenv // TODO support redirection
-	defer func() {
-		if cerr := mainEnv.Close(); rerr == nil {
-			rerr = cerr
-		}
-	}()
 
 	flag.Parse()
 
 	// TODO SIGPIPE handler
 
 	args := flag.Args()
-	if len(args) == 0 {
-		// TODO default to just print? (i.e. degenerate to cat?)
-		return errors.New("no command(s) given")
+
+	var prog string
+	if len(args) > 0 {
+		prog = args[0]
+		args = args[1:]
 	}
 
-	cmd, err := xre.ParseCommand(args[0])
-	if err != nil {
-		return err
-	}
-	args = args[1:]
-
+	rcs := make(chan io.ReadCloser, 1)
 	if len(args) > 0 {
 		return errors.New("reading input from file argument(s) not implemented") // TODO
 	}
-
-	rf, err := xre.BuildReaderFrom(cmd, &mainEnv)
-	if err != nil {
-		return err
-	}
+	rcs <- os.Stdin
+	close(rcs)
 
 	return cmdutil.WithProf(func() error {
-		_, err = rf.ReadFrom(os.Stdin)
-		return err
+		return xre.RunCommand(prog, rcs, &mainEnv)
 	})
 }
