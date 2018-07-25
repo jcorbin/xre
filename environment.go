@@ -3,6 +3,7 @@ package xre
 import (
 	"bufio"
 	"bytes"
+	"io"
 	"io/ioutil"
 	"os"
 )
@@ -66,6 +67,27 @@ func (ne _nullEnv) Close() error       { return nil }
 // useful mainly for testing.
 type BufEnv struct {
 	DefaultOutput bytes.Buffer
+}
+
+// Reset the output buffer, preparing the BufEnv for (re)use.
+func (be *BufEnv) Reset() {
+	be.DefaultOutput.Reset()
+}
+
+// RunProcessor runs the given Processor with the given input bytes, and
+// returns any output bytes and processing error.
+func (be *BufEnv) RunProcessor(proc Processor, input []byte) (out []byte, err error) {
+	be.Reset()
+	err = proc.Process(input, true)
+	return be.DefaultOutput.Bytes(), err
+}
+
+// RunReaderFrom runs the given io.ReaderFrom with the input io.Reader, and
+// returns any output bytes and processing error
+func (be *BufEnv) RunReaderFrom(rf io.ReaderFrom, input io.Reader) (out []byte, err error) {
+	be.Reset()
+	_, err = rf.ReadFrom(input)
+	return be.DefaultOutput.Bytes(), err
 }
 
 // Default returns a processor that will write to the DefaultOutput buffer.

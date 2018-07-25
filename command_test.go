@@ -165,19 +165,16 @@ func (tc cmdTestCase) runIn(te *testEnv, t *testing.T) {
 
 	if proc, haveProc := rf.(xre.Processor); haveProc && haveBytes {
 		t.Run("xre.Processor mode", func(t *testing.T) {
-			te.DefaultOutput.Reset()
-			err := proc.Process(b, true)
-			tc.check(t, te.DefaultOutput.Bytes(), err)
+			out, err := te.RunProcessor(proc, b)
+			tc.check(t, out, err)
 		})
 		t.Run("io.ReaderFrom mode", func(t *testing.T) {
-			te.DefaultOutput.Reset()
-			_, err := rf.ReadFrom(r)
-			tc.check(t, te.DefaultOutput.Bytes(), err)
+			out, err := te.RunReaderFrom(rf, r)
+			tc.check(t, out, err)
 		})
 	} else {
-		te.DefaultOutput.Reset()
-		_, err := rf.ReadFrom(r)
-		tc.check(t, te.DefaultOutput.Bytes(), err)
+		out, err := te.RunReaderFrom(rf, r)
+		tc.check(t, out, err)
 	}
 }
 
