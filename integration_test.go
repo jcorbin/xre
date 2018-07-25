@@ -98,17 +98,14 @@ func (tc intTestCase) runInproc(t *testing.T) {
 		_ = epw.Close()
 	}()
 
-	rs := make(chan io.ReadCloser, 1)
-	rs <- r
-	close(rs)
-
 	errch := make(chan error, 1)
 	go func() {
 		defer func() {
 			_ = opw.Close()
 			_ = epw.Close()
 		}()
-		err := xre.RunCommand(tc.xreCmd, rs, &xre.FileEnv{
+		err := xre.RunCommand(tc.xreCmd, &xre.FileEnv{
+			DefaultInfile:  r,
 			DefaultOutfile: opw,
 		})
 		if err != nil {

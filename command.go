@@ -32,7 +32,7 @@ type Command interface {
 // the given channel, which are then closed after processing is done. It is a
 // convenience around ParseCommand and BuildReaderFrom. The given environment
 // is closed before returning.
-func RunCommand(prog string, rcs <-chan io.ReadCloser, env Environment) (rerr error) {
+func RunCommand(prog string, env Environment) (rerr error) {
 	defer func() {
 		if cerr := env.Close(); rerr == nil {
 			rerr = cerr
@@ -46,9 +46,19 @@ func RunCommand(prog string, rcs <-chan io.ReadCloser, env Environment) (rerr er
 	if err != nil {
 		return err
 	}
-	for rc := range rcs {
-		_, err := rf.ReadFrom(rc)
-		if cerr := rc.Close(); err == nil {
+	return RunReaderFrom(rf, env)
+}
+
+// RunReaderFrom runs the given io.ReaderFrom over all inputs received from
+// env.Inputs(). Each input reader is closed after having read from it.
+// Processing stops on the first input, read, or close error, which is returned.
+func RunReaderFrom(rf io.ReaderFrom, env Environment) error {
+	for in := range env.Inputs() {
+		if in.Err != nil {
+			return in.Err
+		}
+		_, err := rf.ReadFrom(in.ReadCloser)
+		if cerr := in.ReadCloser.Close(); err == nil {
 			err = cerr
 		}
 		if err != nil {

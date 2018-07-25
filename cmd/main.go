@@ -5,9 +5,7 @@ package main
 import (
 	"errors"
 	"flag"
-	"io"
 	"log"
-	"os"
 
 	"github.com/jcorbin/xre"
 	"github.com/jcorbin/xre/internal/cmdutil"
@@ -34,14 +32,11 @@ func run() (rerr error) {
 		args = args[1:]
 	}
 
-	rcs := make(chan io.ReadCloser, 1)
 	if len(args) > 0 {
 		return errors.New("reading input from file argument(s) not implemented") // TODO
 	}
-	rcs <- os.Stdin
-	close(rcs)
 
 	return cmdutil.WithProf(func() error {
-		return xre.RunCommand(prog, rcs, &mainEnv)
+		return xre.RunCommand(prog, &mainEnv)
 	})
 }
