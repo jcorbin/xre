@@ -89,12 +89,18 @@ func (wr writer) Create(nc Command, env Environment) (Processor, error) {
 }
 
 func (fp *fmtProc) Process(buf []byte, last bool) error {
+	if buf == nil {
+		return fp.next.Process(nil, last)
+	}
 	fp.tmp.Reset()
 	_, _ = fmt.Fprintf(&fp.tmp, fp.fmt, buf)
 	return fp.next.Process(fp.tmp.Bytes(), last)
 }
 
 func (dp *delimProc) Process(buf []byte, last bool) error {
+	if buf == nil {
+		return dp.next.Process(nil, last)
+	}
 	dp.tmp.Reset()
 	_, _ = dp.tmp.Write(buf)
 	_, _ = dp.tmp.Write(dp.delim)

@@ -20,5 +20,8 @@ func (pp predicateProcessor) Process(buf []byte, last bool) error {
 		// FIXME may not observe last=true!
 		return pp.next.Process(buf, last)
 	}
+	if buf == nil || last {
+		return pp.next.Process(nil, true)
+	}
 	return nil
 }

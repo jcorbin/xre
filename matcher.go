@@ -25,6 +25,9 @@ func (mp matchProcessor) String() string {
 }
 
 func (mp *matchProcessor) Process(buf []byte, last bool) error {
+	if buf == nil {
+		return mp.next.Process(nil, last)
+	}
 	mp.flushed = false
 	mp.pendLoc = false
 	mp.priorLoc = [3]int{0, 0, 0}
